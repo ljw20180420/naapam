@@ -104,9 +104,9 @@ draw_straight_line(
 
 draw_straight_line(
   models = list(
-    "SpyCas9" = list(a = exp(-1.24), b = -0.54, color = "#56B4E9"), # 蓝色
-    "SpyMac" = list(a = exp(-0.92), b = -0.81, color = "#E15759"), # 红色
-    "iSpyMac" = list(a = exp(-0.89), b = -0.74, color = "#F28E2B") # 橙色
+    "SpyCas9" = list(a = 0.29, b = -0.54, color = "#56B4E9"), # 蓝色
+    "SpyMac" = list(a = 0.4, b = -0.81, color = "#E15759"), # 红色
+    "iSpyMac" = list(a = 0.41, b = -0.74, color = "#F28E2B") # 橙色
   ),
   filename = "result/mix.pdf"
 )
