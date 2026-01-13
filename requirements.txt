@@ -1,4 +1,5 @@
-pandas
+pandas[feather]
+pandas[hdf5]
 statsmodels
 plotnine
 biopython

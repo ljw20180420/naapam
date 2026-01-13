@@ -2,5 +2,5 @@
 
 from src import align
 
-df_plasmid = align.parse_plasmid()
-breakpoint()
+align.extract_sgRNA_barcode_target(control_dir="/home/ljw/sdb1/naapam/control")
+# align.stat_control_step3(control_dir="/home/ljw/sdb1/naapam/control")
