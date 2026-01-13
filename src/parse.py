@@ -1,6 +1,30 @@
 from Bio import Align
 
 
+def get_embedding_aligner() -> Align.PairwiseAligner:
+    aligner = Align.PairwiseAligner(scoring="blastn")
+    aligner.mode = "global"
+    aligner.open_left_deletion_score = 0
+    aligner.extend_left_deletion_score = 0
+    aligner.open_right_deletion_score = 0
+    aligner.extend_right_deletion_score = 0
+
+    return aligner
+
+
+def get_suffix_aligner() -> Align.PairwiseAligner:
+    aligner = Align.PairwiseAligner(scoring="blastn")
+    aligner.mode = "global"
+    aligner.open_left_deletion_score = 0
+    aligner.extend_left_deletion_score = 0
+    aligner.open_right_deletion_score = 0
+    aligner.extend_right_deletion_score = 0
+    aligner.open_right_insertion_score = 0
+    aligner.extend_right_insertion_score = 0
+
+    return aligner
+
+
 def fuzzy_split(
     target: str, delimiter: str, aligner: Align.PairwiseAligner
 ) -> tuple[str | int]:
