@@ -2,7 +2,8 @@ import os
 import pathlib
 import re
 
-from Bio import Align, Seq
+import pandas as pd
+from Bio import Seq
 
 
 def infer_cas(file: os.PathLike) -> str:
