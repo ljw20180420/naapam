@@ -16,16 +16,21 @@ rearr() {
 
 query_ref() {
     local query
-    local name
     local chip
     local ref
     for query in $(find "/home/ljw/sdb1/naapam/query" -name "*.query")
     do
-        name="$(basename "${query}")"
-        chip="$(echo ${name,,} | grep -oP '(?<=\-)(a1|a2|a3|g1n|g2n|g3n)(?=\-)')"
+        chip="$(
+            basename "${query}" |
+            sed -E \
+                -e 's/.*/\L&/' \
+                -e 's/^.+-(a1|a2|a3|g1n|g2n|g3n)-.+$/\1/'
+        )"
         ref="/home/ljw/sdb1/naapam/ref/ref/${chip}.ref"
         printf "%s %s\n" ${query} ${ref}
     done
 }
+
+export -f rearr
 
 parallel -a <(query_ref) --jobs 24 rearr
