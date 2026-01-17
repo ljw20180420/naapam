@@ -199,17 +199,17 @@ def filter_control(
         pam_tail = a_pam_tail if chip in ["a1", "a2", "a3"] else g_pam_tail
         df_control = df_control.query(
             """
-                R1_primer.str.len().between(*@range_R1_primer_length) and \
-                R1_sgRNA.str.len().between(*@range_R1_sgRNA_length) and \
+                @range_R1_primer_length[0] <= R1_primer.str.len() <= @range_R1_primer_length[1] and \
+                @range_R1_sgRNA_length[0] <= R1_sgRNA.str.len() <= @range_R1_sgRNA_length[1] and \
                 R1_scaffold_prefix.str.len() >= @min_R1_scaffold_prefix_length and \
-                R1_tail.str().len() <= @max_R1_tail_length and \
-                R2_primer.str.len().between(*@range_R2_primer_length) and \
-                barcode_CTG_target_prefix.str.len().between(*@range_barcode_CTG_target_prefix_length) and \
-                R2_sgRNA.str.len().between(*@range_R2_sgRNA_length) and \
-                target_suffix.str.len().between(*@range_target_suffix_length) and \
+                R1_tail.str.len() <= @max_R1_tail_length and \
+                @range_R2_primer_length[0] <= R2_primer.str.len() <= @range_R2_primer_length[1] and \
+                @range_barcode_CTG_target_prefix_length[0] <= barcode_CTG_target_prefix.str.len() <= @range_barcode_CTG_target_prefix_length[1] and \
+                @range_R2_sgRNA_length[0] <= R2_sgRNA.str.len() <= @range_R2_sgRNA_length[1] and \
+                @range_target_suffix_length[0] <= target_suffix.str.len() <= @range_target_suffix_length[1] and \
                 R2_scaffold_prefix.str.len() >= @min_R2_scaffold_prefix_length and \
                 R2_tail.str.len() <= @max_R2_tail_length and \
-                pam.str.len().between(*@range_pam_length) and \
+                @range_pam_length[0] <= pam.str.len() <= @range_pam_length[1] and \
                 R1_primer_score >= @min_R1_primer_score and \
                 R1_scaffold_prefix_score >= @min_R1_scaffold_prefix_score and \
                 R2_primer_score >= @min_R2_primer_score and \
