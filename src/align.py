@@ -120,6 +120,7 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         "target_suffix",
         "R2_scaffold_prefix",
         "R2_tail",
+        "pam",
     ]:
         df[column].str.len().plot.hist(
             bins=150, weights=df["count"]
@@ -138,14 +139,17 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         )
         plt.close("all")
 
-    for column in ["G", "pam", "C"]:
+    df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
+    for column in ["G", "C", "pam_tail"]:
         df.groupby(column)["count"].sum().plot.bar().get_figure().savefig(
             save_dir / f"{column}.pdf"
         )
         plt.close("all")
 
+    df["count"].plot.hist(bins=100).get_figure().savefig(save_dir / "count.pdf")
+    plt.close("all")
     df.query("count <= 100")["count"].plot.hist(bins=100).get_figure().savefig(
-        save_dir / "count.pdf"
+        save_dir / "count_small.pdf"
     )
     plt.close("all")
 
@@ -154,47 +158,75 @@ def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
-        stat(df=df_control, save_dir=f"figures/align/control/{chip}")
+        stat(df=df_control, save_dir=f"figures/align/stat/control/{chip}")
 
 
 def filter_control(
     root_dir: os.PathLike,
-    # R1_primer,
-    # R1_sgRNA,
-    # R1_scaffold_prefix,
-    # R1_tail,
-    # R2_primer,
-    # barcode_CTG_target_prefix,
-    # R2_sgRNA,
-    # target_suffix,
-    # R2_scaffold_prefix,
-    # R2_tail,
+    range_R1_primer_length: list[int],
+    range_R1_sgRNA_length: list[int],
+    min_R1_scaffold_prefix_length: int,
+    max_R1_tail_length: int,
+    range_R2_primer_length: list[int],
+    range_barcode_CTG_target_prefix_length: int,
+    range_R2_sgRNA_length: list[int],
+    range_target_suffix_length: list[int],
+    min_R2_scaffold_prefix_length: int,
+    max_R2_tail_length: int,
+    range_pam_length: int,
     min_R1_primer_score: int,
-    # min_R1_scaffold_prefix_score: int,
+    min_R1_scaffold_prefix_score: int,
     min_R2_primer_score: int,
-    # min_R2_sgRNA_score: int,
-    # min_R2_scaffold_prefix_score: int,
+    min_R2_sgRNA_score: int,
+    min_R2_scaffold_prefix_score: int,
+    G: list[str],
+    C: list[str],
+    a_pam_tail: list[str],
+    g_pam_tail: list[str],
     min_count: int,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "filter", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        pam_tail = "AA" if chip in ["a1", "a2", "a3"] else "GG"
-        df_control = (
-            pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
-            .query(
-                """
-                    R1_primer_score >= @min_R1_primer_score and \
-                    R2_primer_score >= @min_R2_primer_score and \
-                    pam.str.len() == 3 and \
-                    pam.str.endswith(@pam_tail) and \
-                    G == "G" and \
-                    C == "C" and \
-                    count >= @min_count
-                """
-            )
-            .reset_index(drop=True)
-        )
+        save_dir = pathlib.Path(f"figures/align/filter/control/{chip}")
+        os.makedirs(save_dir, exist_ok=True)
+        df_stat = pd.DataFrame(columns=["row_num", "count"], index=["full", "filter"])
+
+        df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
+        df_stat.loc["full", "row_num"] = df_control.shape[0]
+        df_stat.loc["full", "count"] = df_control["count"].sum()
+
+        pam_tail = a_pam_tail if chip in ["a1", "a2", "a3"] else g_pam_tail
+        df_control = df_control.query(
+            """
+                R1_primer.str.len().between(*@range_R1_primer_length) and \
+                R1_sgRNA.str.len().between(*@range_R1_sgRNA_length) and \
+                R1_scaffold_prefix.str.len() >= @min_R1_scaffold_prefix_length and \
+                R1_tail.str().len() <= @max_R1_tail_length and \
+                R2_primer.str.len().between(*@range_R2_primer_length) and \
+                barcode_CTG_target_prefix.str.len().between(*@range_barcode_CTG_target_prefix_length) and \
+                R2_sgRNA.str.len().between(*@range_R2_sgRNA_length) and \
+                target_suffix.str.len().between(*@range_target_suffix_length) and \
+                R2_scaffold_prefix.str.len() >= @min_R2_scaffold_prefix_length and \
+                R2_tail.str.len() <= @max_R2_tail_length and \
+                pam.str.len().between(*@range_pam_length) and \
+                R1_primer_score >= @min_R1_primer_score and \
+                R1_scaffold_prefix_score >= @min_R1_scaffold_prefix_score and \
+                R2_primer_score >= @min_R2_primer_score and \
+                R2_sgRNA_score >= @min_R2_sgRNA_score and \
+                R2_scaffold_prefix_score >= @min_R2_scaffold_prefix_score and \
+                G.isin(@G) and \
+                C.isin(@C) and \
+                pam.str.slice(start=-2).isin(@pam_tail) and \
+                count >= @min_count
+            """
+        ).reset_index(drop=True)
+        df_stat.loc["filter", "row_num"] = df_control.shape[0]
+        df_stat.loc["filter", "count"] = df_control["count"].sum()
+
+        df_stat["row_num"].plot.bar().get_figure().savefig(save_dir / "row_num.pdf")
+        df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
+
         df_control.to_feather(root_dir / "control" / "filter" / f"{chip}.feather")
 
 
