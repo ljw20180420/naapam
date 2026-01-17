@@ -12,7 +12,7 @@ def get_file_pairs(data_dir: os.PathLike) -> list[dict[str, os.PathLike]]:
     data_dir = pathlib.Path(data_dir)
     file_pairs = []
     for file in os.listdir(data_dir):
-        if file.startswith("p-") or not file.endswith(".R2.fq.gz"):
+        if not file.endswith(".R2.fq.gz"):
             continue
         stem = file.replace(".R2.fq.gz", "")
         file_pairs.append(
@@ -98,7 +98,7 @@ def collect_control(
                     sep="\t",
                     header=0,
                     keep_default_na=False,
-                ).drop(columns=["R1_barcode", "R1_barcode"])
+                ).drop(columns=["R1_barcode", "R2_barcode"])
             )
 
         df_control = agg(pd.concat(df_controls))
@@ -209,7 +209,7 @@ def collect_treat(root_dir: os.PathLike):
             continue
         df_treat = pd.read_csv(
             root_dir / "parse" / parse_file, sep="\t", header=0, keep_default_na=False
-        ).drop(columns=["R1_barcode", "R1_barcode"])
+        ).drop(columns=["R1_barcode", "R2_barcode"])
 
         df_treat = agg(df_treat)
         df_treat.to_feather(root_dir / "treat" / "full" / f"{parse_file.stem}.feather")
@@ -342,6 +342,7 @@ def demultiplex(
             )
         )
 
+        # Get ref number distribution for each query.
         df_demultiplex = df_query.groupby("query").agg(
             ref_num=pd.NamedAgg(column="query", aggfunc="size"),
             ref_id=pd.NamedAgg(column="ref_id", aggfunc="first"),
@@ -351,6 +352,15 @@ def demultiplex(
         df_demultiplex["ref_num"].plot.hist(
             bins=100, weights=df_demultiplex["count"]
         ).get_figure().savefig(save_dir / "ref_num.pdf")
+
+        # Get query count distribution for each ref. Queries with multiple refs are distributed to each ref evenly.
+        df_query.assign(
+            ref_num=lambda df: df.groupby("query").transform("size"),
+            count=lambda df: df["count"] / df["ref_num"],
+            ref_id=lambda df: df["ref_id"].fillna(-1),
+        ).groupby("ref_id")["count"].sum().plot.bar().get_figure().savefig(
+            save_dir / "count.pdf"
+        )
 
         df_query.query("not ref_id.isna()").reset_index(drop=True).astype(
             {"ref_id": int}
