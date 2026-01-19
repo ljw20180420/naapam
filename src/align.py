@@ -244,17 +244,18 @@ def collect_treat(root_dir: os.PathLike):
         ).drop(columns=["R1_barcode", "R2_barcode"])
 
         df_treat = agg(df_treat)
-        df_treat.to_feather(root_dir / "treat" / "full" / f"{parse_file.stem}.feather")
+        df_treat.to_feather(
+            root_dir / "treat" / "full" / f"{pathlib.Path(parse_file).stem}.feather"
+        )
 
 
 def stat_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path(f"figures/align/treat")
-    os.makedirs(save_dir, exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "full"):
-        df_treat = pd.read_feather(treat_file)
+        df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
         stat(
-            df=df_treat, save_dir=f"figures/align/treat/{pathlib.Path(treat_file).stem}"
+            df=df_treat,
+            save_dir=f"figures/align/stat/treat/{pathlib.Path(treat_file).stem}",
         )
 
 
