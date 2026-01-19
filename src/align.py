@@ -106,68 +106,6 @@ def collect_control(
         df_control.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
 
 
-def stat_col(dfs: Iterator[pd.DataFrame], save_dir: os.PathLike, column: str):
-    if column in [
-        "R1_primer",
-        "R1_sgRNA",
-        "R1_scaffold_prefix",
-        "R1_tail",
-        "R2_primer",
-        "barcode_CTG_target_prefix",
-        "R2_sgRNA",
-        "target_suffix",
-        "R2_scaffold_prefix",
-        "R2_tail",
-        "pam",
-    ]:
-        df_groups = []
-        for df in dfs:
-            df_groups.append(
-                df.assign({f"{column}_length": lambda df: df[column].str.len()})
-                .groupby(f"{column}_length")["count"]
-                .sum()
-                .reset_index()
-            )
-            df[column].str.len().plot.hist(
-                bins=150, weights=df["count"]
-            ).get_figure().savefig(save_dir / f"{column}_length.pdf")
-            plt.close("all")
-        return
-
-    if column in [
-        "R1_primer_score",
-        "R1_scaffold_prefix_score",
-        "R2_primer_score",
-        "R2_sgRNA_score",
-        "R2_scaffold_prefix_score",
-    ]:
-        df[column].plot.hist(bins=300, weights=df["count"]).get_figure().savefig(
-            save_dir / f"{column}.pdf"
-        )
-        plt.close("all")
-        return
-
-    if column in ["G", "C", "pam_tail"]:
-        if column == "pam_tail":
-            df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
-        df.groupby(column)["count"].sum().plot.bar().get_figure().savefig(
-            save_dir / f"{column}.pdf"
-        )
-        plt.close("all")
-        return
-
-    if column == "count":
-        df["count"].plot.hist(bins=100).get_figure().savefig(save_dir / "count.pdf")
-        plt.close("all")
-        df.query("count <= 100")["count"].plot.hist(bins=100).get_figure().savefig(
-            save_dir / "count_small.pdf"
-        )
-        plt.close("all")
-        return
-
-    raise Exception("Unknown column")
-
-
 def stat(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     stats = {}
     for column in [
