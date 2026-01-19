@@ -3,3 +3,5 @@ statsmodels
 plotnine
 biopython
 pyyaml
+# fireducks
+# modin[all]

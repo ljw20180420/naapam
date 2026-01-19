@@ -1,6 +1,7 @@
 import os
 import pathlib
 import subprocess
+from typing import Iterator
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -105,10 +106,70 @@ def collect_control(
         df_control.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
 
 
-def stat(df: pd.DataFrame, save_dir: os.PathLike):
-    save_dir = pathlib.Path(os.fspath(save_dir))
-    os.makedirs(save_dir, exist_ok=True)
+def stat_col(dfs: Iterator[pd.DataFrame], save_dir: os.PathLike, column: str):
+    if column in [
+        "R1_primer",
+        "R1_sgRNA",
+        "R1_scaffold_prefix",
+        "R1_tail",
+        "R2_primer",
+        "barcode_CTG_target_prefix",
+        "R2_sgRNA",
+        "target_suffix",
+        "R2_scaffold_prefix",
+        "R2_tail",
+        "pam",
+    ]:
+        df_groups = []
+        for df in dfs:
+            df_groups.append(
+                df.assign({f"{column}_length": lambda df: df[column].str.len()})
+                .groupby(f"{column}_length")["count"]
+                .sum()
+                .reset_index()
+            )
+            df[column].str.len().plot.hist(
+                bins=150, weights=df["count"]
+            ).get_figure().savefig(save_dir / f"{column}_length.pdf")
+            plt.close("all")
+        return
 
+    if column in [
+        "R1_primer_score",
+        "R1_scaffold_prefix_score",
+        "R2_primer_score",
+        "R2_sgRNA_score",
+        "R2_scaffold_prefix_score",
+    ]:
+        df[column].plot.hist(bins=300, weights=df["count"]).get_figure().savefig(
+            save_dir / f"{column}.pdf"
+        )
+        plt.close("all")
+        return
+
+    if column in ["G", "C", "pam_tail"]:
+        if column == "pam_tail":
+            df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
+        df.groupby(column)["count"].sum().plot.bar().get_figure().savefig(
+            save_dir / f"{column}.pdf"
+        )
+        plt.close("all")
+        return
+
+    if column == "count":
+        df["count"].plot.hist(bins=100).get_figure().savefig(save_dir / "count.pdf")
+        plt.close("all")
+        df.query("count <= 100")["count"].plot.hist(bins=100).get_figure().savefig(
+            save_dir / "count_small.pdf"
+        )
+        plt.close("all")
+        return
+
+    raise Exception("Unknown column")
+
+
+def stat(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    stats = {}
     for column in [
         "R1_primer",
         "R1_sgRNA",
@@ -122,10 +183,12 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         "R2_tail",
         "pam",
     ]:
-        df[column].str.len().plot.hist(
-            bins=150, weights=df["count"]
-        ).get_figure().savefig(save_dir / f"{column}_length.pdf")
-        plt.close("all")
+        stats[f"{column}_length"] = (
+            df.assign(**{f"{column}_length": lambda df: df[column].str.len()})
+            .groupby(f"{column}_length")["count"]
+            .sum()
+            .reset_index()
+        )
 
     for column in [
         "R1_primer_score",
@@ -133,32 +196,50 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         "R2_primer_score",
         "R2_sgRNA_score",
         "R2_scaffold_prefix_score",
+        "G",
+        "C",
+        "pam_tail",
     ]:
-        df[column].plot.hist(bins=300, weights=df["count"]).get_figure().savefig(
-            save_dir / f"{column}.pdf"
-        )
-        plt.close("all")
+        if column == "pam_tail":
+            df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
+        stats[column] = df.groupby(column)["count"].sum().reset_index()
 
-    df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
-    for column in ["G", "C", "pam_tail"]:
-        df.groupby(column)["count"].sum().plot.bar().get_figure().savefig(
-            save_dir / f"{column}.pdf"
-        )
-        plt.close("all")
-
-    df["count"].plot.hist(bins=100).get_figure().savefig(save_dir / "count.pdf")
-    plt.close("all")
-    df.query("count <= 100")["count"].plot.hist(bins=100).get_figure().savefig(
-        save_dir / "count_small.pdf"
+    stats["count_full"] = (
+        df.groupby("count")
+        .size()
+        .reset_index()
+        .rename(columns={"count": "count_full", 0: "count"})
     )
-    plt.close("all")
+    stats["count_small"] = (
+        df.query("count <= 100").groupby("count").size().reset_index()
+    ).rename(columns={"count": "count_small", 0: "count"})
+
+    return stats
+
+
+def draw(stats: dict[str, pd.DataFrame], save_dir: os.PathLike):
+    save_dir = pathlib.Path(os.fspath(save_dir))
+    os.makedirs(save_dir, exist_ok=True)
+    for column, df in stats.items():
+        if column in ["G", "C", "pam_tail"]:
+            df.set_index(column)["count"].plot.bar().get_figure().savefig(
+                save_dir / f"{column}.pdf"
+            )
+        else:
+            bins = 300 if column.endswith("score") else 150
+            df[column].plot.hist(bins=bins, weights=df["count"]).get_figure().savefig(
+                save_dir / f"{column}.pdf"
+            )
+
+        plt.close("all")
 
 
 def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
-        stat(df=df_control, save_dir=f"figures/align/stat/control/{chip}")
+        stats = stat(df=df_control)
+        draw(stats, save_dir=f"figures/align/stat/control/{chip}")
 
 
 def filter_control(
@@ -251,32 +332,75 @@ def collect_treat(root_dir: os.PathLike):
 
 def stat_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
+    stats_collect = {}
     for treat_file in os.listdir(root_dir / "treat" / "full"):
         df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
-        stat(
-            df=df_treat,
-            save_dir=f"figures/align/stat/treat/{pathlib.Path(treat_file).stem}",
+        for column, df in stat(df=df_treat).items():
+            if column not in stats_collect:
+                stats_collect[column] = []
+            stats_collect[column].append(df)
+
+    for column, dfs in stats_collect.items():
+        stats_collect[column] = (
+            pd.concat(dfs).groupby(column)["count"].sum().reset_index()
         )
+    draw(stats_collect, save_dir=f"figures/align/stat/treat")
 
 
 def filter_treat(
-    root_dir: os.PathLike, min_R1_primer_score: int, min_R2_primer_score: int
+    root_dir: os.PathLike,
+    range_R1_primer_length: list[int],
+    range_R1_sgRNA_length: list[int],
+    # min_R1_scaffold_prefix_length: int,
+    # max_R1_tail_length: int,
+    range_R2_primer_length: list[int],
+    # range_barcode_CTG_target_prefix_length: int,
+    # range_R2_sgRNA_length: list[int],
+    # range_target_suffix_length: list[int],
+    # min_R2_scaffold_prefix_length: int,
+    # max_R2_tail_length: int,
+    # range_pam_length: int,
+    min_R1_primer_score: int,
+    # min_R1_scaffold_prefix_score: int,
+    min_R2_primer_score: int,
+    # min_R2_sgRNA_score: int,
+    # min_R2_scaffold_prefix_score: int,
+    G: list[str],
+    # C: list[str],
+    # a_pam_tail: list[str],
+    # g_pam_tail: list[str],
+    min_count: int,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "treat" / "filter", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "full"):
-        df_treat = (
-            pd.read_feather(treat_file)
-            .query(
-                """
-                    R1_primer_score >= @min_R1_primer_score and \
-                    R2_primer_score >= @min_R2_primer_score and \
-                    G == "G" and \
-                    C == "C"
-                """
-            )
-            .reset_index(drop=True)
+        save_dir = pathlib.Path(
+            f"figures/align/filter/treat/{pathlib.Path(treat_file).stem}"
         )
+        os.makedirs(save_dir, exist_ok=True)
+        df_stat = pd.DataFrame(columns=["row_num", "count"], index=["full", "filter"])
+
+        df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
+        df_stat.loc["full", "row_num"] = df_treat.shape[0]
+        df_stat.loc["full", "count"] = df_treat["count"].sum()
+
+        df_treat = df_treat.query(
+            """
+                @range_R1_primer_length[0] <= R1_primer.str.len() <= @range_R1_primer_length[1] and \
+                @range_R1_sgRNA_length[0] <= R1_sgRNA.str.len() <= @range_R1_sgRNA_length[1] and \
+                @range_R2_primer_length[0] <= R2_primer.str.len() <= @range_R2_primer_length[1] and \
+                R1_primer_score >= @min_R1_primer_score and \
+                R2_primer_score >= @min_R2_primer_score and \
+                G.isin(@G) and \
+                count >= @min_count
+            """
+        ).reset_index(drop=True)
+        df_stat.loc["filter", "row_num"] = df_treat.shape[0]
+        df_stat.loc["filter", "count"] = df_treat["count"].sum()
+
+        df_stat["row_num"].plot.bar().get_figure().savefig(save_dir / "row_num.pdf")
+        df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
+
         df_treat.to_feather(root_dir / "treat" / "filter" / treat_file)
 
 
