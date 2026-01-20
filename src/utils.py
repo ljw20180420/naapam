@@ -2,7 +2,6 @@ import os
 import pathlib
 import re
 
-import pandas as pd
 from Bio import Seq
 
 
@@ -58,14 +57,29 @@ def infer_chip(file: os.PathLike) -> str:
     return re.search(r"-(a1|a2|a3|g1n|g2n|g3n)-", name).group(1)
 
 
-def infer_time(file: os.PathLike) -> str:
+def infer_time(file: os.PathLike) -> int:
     name = pathlib.Path(os.fspath(file)).name.lower()
-    return re.search(r"-(?:a1|a2|a3|g1n|g2n|g3n)-(\d)", name).group(1)
+    return int(re.search(r"-(?:a1|a2|a3|g1n|g2n|g3n)-(\d)", name).group(1))
 
 
 def infer_sample(file: os.PathLike) -> str:
     name = pathlib.Path(os.fspath(file)).name.lower()
     return re.search(r"^(.+?)-", name).group(1)
+
+
+def infer_rep(file: os.PathLike) -> int:
+    name = pathlib.Path(os.fspath(file)).name.lower()
+    if re.search(r"re21-", name):
+        return 3
+    if (
+        name.startswith("d21-")
+        or name.startswith("a71-")
+        or name.startswith("wt11-")
+        or name.startswith("wt21-")
+        or re.search(r"re2-", name)
+    ):
+        return 2
+    return 1
 
 
 def p5primer() -> str:
