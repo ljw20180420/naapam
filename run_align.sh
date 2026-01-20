@@ -26,7 +26,7 @@ query_ref() {
                 -e 's/.*/\L&/' \
                 -e 's/^.+-(a1|a2|a3|g1n|g2n|g3n)-.+$/\1/'
         )"
-        ref="/home/ljw/sdb1/naapam/ref/ref/${chip}.ref"
+        ref="/home/ljw/sdb1/naapam/ref/${chip}.ref"
         printf "%s %s\n" ${query} ${ref}
     done
 }

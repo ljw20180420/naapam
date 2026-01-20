@@ -347,48 +347,36 @@ def reference(
     ext: int = 10,
 ):
     root_dir = pathlib.Path(root_dir)
-    os.makedirs(root_dir / "ref" / "ref", exist_ok=True)
-    os.makedirs(root_dir / "ref" / "control", exist_ok=True)
+    os.makedirs(root_dir / "ref", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        df_ref = (
-            pd.read_feather(root_dir / "control" / "filter" / f"{chip}.feather")
-            .assign(
-                ref=lambda df: df["R2_primer"]
-                + df["barcode_CTG_target_prefix"]
-                + df["R2_sgRNA"]
-                + df["pam"]
-                + df["target_suffix"]
-                + df["C"]
-                + df["R2_scaffold_prefix"]
-                + df["R2_tail"],
-                cut=lambda df: df["R2_primer"].str.len()
-                + df["barcode_CTG_target_prefix"].str.len()
-                + df["R2_sgRNA"].str.len()
-                - 3,
-            )
-            .query(
-                """
-                    cut + @ext <= ref.str.len() and \
-                    cut >= @ext
-                """
-            )
-            .reset_index(drop=True)
-        )
-        df_ref.assign(
-            ref1=lambda df: df.apply(
-                lambda row: row["ref"][: row["cut"] + ext], axis=1
-            ),
-            ref2=lambda df: df.apply(
-                lambda row: row["ref"][row["cut"] - ext :], axis=1
-            ),
+        df_ref = pd.read_feather(root_dir / "control" / "filter" / f"{chip}.feather")
+        assert (
+            df_ref["R2_sgRNA"].str.len() >= 3
+        ).all(), "R2_sgRNA too short (less than 3bp)"
+        df_ref = df_ref.assign(
+            ref1=lambda df: df["R2_primer"]
+            + df["barcode_CTG_target_prefix"]
+            + df["R2_sgRNA"].str.slice(stop=-3),
+            ref2=lambda df: df["R2_sgRNA"].str.slice(start=-3)
+            + df["pam"]
+            + df["target_suffix"]
+            + df["C"]
+            + df["R2_scaffold_prefix"]
+            + df["R2_tail"],
+            cut=lambda df: df["ref1"].str.len(),
             zero=0,
             ext=ext,
-            ref2len=lambda df: df["ref2"].str.len(),
-        )[["zero", "ref1", "cut", "ext", "ref2", "ref2len"]].to_csv(
-            root_dir / "ref" / "ref" / f"{chip}.ref", sep="\t", header=False
+            ref2len=lambda df: df["ref2"].str.len() + ext,
         )
-        df_ref.drop(columns=["ref", "cut"]).to_feather(
-            root_dir / "ref" / "control" / f"{chip}.feather"
+        assert (df_ref["cut"] >= ext).all(), f"ref1 too short (less than {ext})"
+        assert (df_ref["ref2len"] >= 2 * ext).all(), f"ref2 too short (less than {ext})"
+        df_ref = df_ref.assign(
+            ref1=lambda df: df["ref1"] + df["ref2"].str.slice(stop=ext),
+            ref2=lambda df: df["ref1"].str.slice(start=-2 * ext, stop=-ext)
+            + df["ref2"],
+        )
+        df_ref[["zero", "ref1", "cut", "ext", "ref2", "ref2len"]].to_csv(
+            root_dir / "ref" / f"{chip}.ref", sep="\t", header=False
         )
 
 
@@ -400,13 +388,13 @@ def demultiplex(
     """
     root_dir = pathlib.Path(root_dir)
     os.makedirs(root_dir / "query", exist_ok=True)
-    for treat_filter_file in os.listdir(root_dir / "treat" / "filter"):
-        chip = utils.infer_chip(treat_filter_file)
+    for treat_file in os.listdir(root_dir / "treat" / "filter"):
+        chip = utils.infer_chip(treat_file)
         save_dir = pathlib.Path(f"figures/align/demultiplex/{chip}")
         os.makedirs(save_dir, exist_ok=True)
 
         df_ref = pd.read_feather(
-            root_dir / "ref" / "control" / f"{chip}.feather"
+            root_dir / "control" / "filter" / f"{chip}.feather"
         ).reset_index(names="ref_id")
 
         on = [
@@ -419,7 +407,7 @@ def demultiplex(
             "R2_scaffold_prefix",
         ]
         df_query = (
-            pd.read_feather(treat_filter_file)
+            pd.read_feather(treat_file)
             .assign(
                 query=lambda df: df["R2_primer"]
                 + df["barcode_CTG_target_prefix"]
@@ -460,7 +448,7 @@ def demultiplex(
         df_query.query("not ref_id.isna()").reset_index(drop=True).astype(
             {"ref_id": int}
         )[["query", "count", "ref_id"]].to_csv(
-            root_dir / "query" / f"{treat_filter_file.stem}.query",
+            root_dir / "query" / f"{treat_file.stem}.query",
             sep="\t",
             header=False,
         )
