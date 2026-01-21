@@ -7,8 +7,8 @@ range_R1_sgRNA_length:
 range_R2_primer_length:
   - 20
   - 21
-min_R1_primer_score: 20
-min_R2_primer_score: 20
+min_R1_primer_score: 30
+min_R2_primer_score: 30
 G:
   - "G"
 min_count: 1

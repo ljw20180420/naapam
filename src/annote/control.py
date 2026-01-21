@@ -4,42 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def count_tot(df_control: pd.DataFrame) -> pd.DataFrame:
-    return df_control.assign(
-        count_tot=lambda df: df.groupby(["chip", "rep", "barcode"])["count"].transform(
-            "sum"
-        )
-    )
-
-
-def count_wt(df_control: pd.DataFrame) -> pd.DataFrame:
-    return df_control.merge(
-        right=df_control.query("is_wt")[["chip", "rep", "barcode", "count"]].rename(
-            columns={"count": "count_wt"}
-        ),
-        how="left",
-        on=["chip", "rep", "barcode"],
-        validate="many_to_one",
-    ).assign(count_wt=lambda df: df["count_wt"].fillna(0).astype(int))
-
-
-def count_temN(
-    df_control: pd.DataFrame, tem: int, cut1: int = 50, cut2: int = 60
-) -> pd.DataFrame:
-    return df_control.merge(
-        right=df_control.query(
-            'ref_end1 + @tem + 1 == @cut1 and ref_start2 + @tem == @cut2 and random_insertion == ""'
-        )[["chip", "rep", "barcode", "count"]].rename(
-            columns={"count": f"count_tem{tem}"}
-        ),
-        how="left",
-        on=["chip", "rep", "barcode"],
-        validate="many_to_one",
-    ).assign(
-        **{f"count_tem{tem}": lambda df: df[f"count_tem{tem}"].fillna(0).astype(int)}
-    )
-
-
 def m_synerr(df_control: pd.DataFrame) -> pd.Series:
     m_synerr = df_control["count"] / df_control["count_tot"]
     m_synerr.loc[df_control["is_wt"]] = float("nan")

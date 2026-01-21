@@ -2,6 +2,9 @@ import os
 import pathlib
 import re
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from Bio import Seq
 
 
@@ -118,3 +121,77 @@ def RCscaffold(chip: str) -> str:
 
 def RCscaffold_alt(chip: str) -> str:
     return str(Seq.Seq(scaffold_alt(chip)).reverse_complement())
+
+
+#################################################
+# main
+#################################################
+
+
+def up_del_size(df: pd.DataFrame) -> pd.Series:
+    up_del_size: pd.Series = np.maximum(df["cut1"] - df["ref_end1"], 0)
+    save_dir = pathlib.Path(f"figures/hists")
+    os.makedirs(save_dir, exist_ok=True)
+    up_del_size.plot.hist(bins=30, weights=df["count"]).get_figure().savefig(
+        save_dir / "up_del_size.pdf"
+    )
+    plt.close("all")
+    return up_del_size
+
+
+def down_del_size(df: pd.DataFrame) -> pd.Series:
+    down_del_size: pd.Series = np.maximum(df["ref_start2"] - df["cut2"], 0)
+    save_dir = pathlib.Path(f"figures/hists")
+    os.makedirs(save_dir, exist_ok=True)
+    down_del_size.plot.hist(bins=30, weights=df["count"]).get_figure().savefig(
+        save_dir / "down_del_size.pdf"
+    )
+    plt.close("all")
+    return down_del_size
+
+
+def rand_ins_size(df: pd.DataFrame) -> pd.Series:
+    rand_ins_size: pd.Series = df["random_insertion"].str.len()
+    save_dir = pathlib.Path(f"figures/hists")
+    os.makedirs(save_dir, exist_ok=True)
+    rand_ins_size.plot.hist(bins=30, weights=df["count"]).get_figure().savefig(
+        save_dir / "rand_ins_size.pdf"
+    )
+    plt.close("all")
+    return rand_ins_size
+
+
+def is_wt(df: pd.DataFrame) -> pd.Series:
+    return (
+        (df["ref_end1"] == df["cut1"])
+        & (df["ref_start2"] == df["cut2"])
+        & (df["random_insertion"] == "")
+    )
+
+
+def count_wt(df: pd.DataFrame) -> pd.Series:
+    return (
+        df[["stem", "ref_id"]]
+        .merge(
+            right=df.loc[is_wt(df)][["stem", "ref_id", "count"]],
+            how="left",
+            on=["stem", "ref_id"],
+            validate="many_to_one",
+        )["count"]
+        .fillna(0)
+    )
+
+
+def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
+    return (
+        df[["stem", "ref_id"]]
+        .merge(
+            right=df.query(
+                'ref_end1 + @tem + 1 == cut1 and ref_start2 + @tem == cut2 and random_insertion == ""'
+            )[["stem", "ref_id", "count"]],
+            how="left",
+            on=["stem", "ref_id"],
+            validate="many_to_one",
+        )["count"]
+        .fillna(0)
+    )
