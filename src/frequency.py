@@ -2,20 +2,6 @@ import numpy as np
 import pandas as pd
 
 
-def frequency_tot(df_treat: pd.DataFrame) -> pd.DataFrame:
-    return df_treat.assign(frequency_tot=lambda df: df["count"] / df["count_tot"])
-
-
-def frequency_nowt(df_treat: pd.DataFrame) -> pd.DataFrame:
-    df_treat = df_treat.assign(
-        frequency_nowt=lambda df: df["count"]
-        / (df["count_tot"] - df["count_wt"] + 1e-6)
-    )
-    df_treat.loc[df_treat["is_wt"], "frequency_nowt"] = float("nan")
-
-    return df_treat
-
-
 def frequency_tot_kim(df_treat: pd.DataFrame) -> pd.DataFrame:
     df_treat = df_treat.assign(
         frequency_tot_kim=lambda df: np.maximum(

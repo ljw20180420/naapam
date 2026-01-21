@@ -161,13 +161,17 @@ def filter_mutant(
     max_rand_ins_size: int,
     max_freq_mutant: float,
 ) -> pd.DataFrame:
+    """
+    Do not filter mutant because missing mutant are treated as count 0. Set mutant count to nan to exclude it from all statistics involving count.
+    """
     mask = (
         (utils.up_del_size(df_alg) <= max_up_del_size)
         & (utils.down_del_size(df_alg) <= max_down_del_size)
         & (utils.rand_ins_size(df_alg) <= max_rand_ins_size)
         & ((utils.freq_mutant(df_alg) <= max_freq_mutant) | utils.is_wt(df_alg))
     )
-    return df_alg.loc[mask].reset_index(drop=True)
+    df_alg.loc[~mask, "count"] = float("nan")
+    return df_alg
 
 
 def stat_ref(df_alg: pd.DataFrame):
@@ -201,6 +205,9 @@ def filter_ref(
     max_freq_nowt: float,
     max_freq_temN: dict[int, float],
 ) -> pd.DataFrame:
+    """
+    Use positive mask because nan compare always return False.
+    """
     mask = df_alg.groupby(["stem", "ref_id"])["count"].transform("sum") >= min_count_tot
     mask = mask & (utils.freq_nowt(df_alg) <= max_freq_nowt)
     for tem in range(1, 5):
