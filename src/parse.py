@@ -1,4 +1,10 @@
-from Bio import Align
+import os
+import pathlib
+import subprocess
+
+import pandas as pd
+import pysam
+from Bio import Align, Seq
 
 
 def get_embedding_aligner() -> Align.PairwiseAligner:
@@ -109,3 +115,159 @@ def R2(
     target_suffix = pam_target_suffix[3:]
 
     return barcode_CTG_target_prefix, R2_sgRNA, pam, target_suffix, C, R2_sgRNA_score
+
+
+def build_barcode(root_dir: os.PathLike):
+    root_dir = pathlib.Path(root_dir)
+    os.makedirs(root_dir / "barcode")
+    df_plasmid = pd.read_csv(
+        "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv",
+        header=0,
+    )
+    with open(root_dir / "barcode" / "barcode.fa", "w") as fd:
+        for i, barcode in enumerate(df_plasmid["Barcode2"]):
+            barcode = str(Seq.Seq(barcode).reverse_complement())
+            fd.write(f">b{i}\n{barcode}\n")
+
+        subprocess.run(
+            args=[
+                "bowtie2-build",
+                (root_dir / "barcode" / "barcode.fa").as_posix(),
+                (root_dir / "barcode" / "barcode").as_posix(),
+            ]
+        )
+
+
+def prepare_barcode_CTG_target_prefix(root_dir: os.PathLike):
+    root_dir = pathlib.Path(root_dir)
+    os.makedirs(root_dir / "bowtie2", exist_ok=True)
+    for parse_file in os.listdir(root_dir / "parse"):
+        df = pd.read_csv(
+            root_dir / "parse" / parse_file,
+            sep="\t",
+            header=0,
+            usecols=["barcode_CTG_target_prefix"],
+            keep_default_na=False,
+        )
+        df["barcode_CTG_target_prefix"] = df.where(
+            df["barcode_CTG_target_prefix"] != "", "N"
+        )
+        df.to_csv(
+            root_dir / "bowtie2" / f"{pathlib.Path(parse_file).stem}.csv",
+            header=False,
+            index=False,
+        )
+
+
+def map_barcode(root_dir: os.PathLike):
+    root_dir = pathlib.Path(root_dir)
+    for csv_file in os.listdir(root_dir / "bowtie2"):
+        if not csv_file.endswith(".csv"):
+            continue
+        subprocess.run(
+            args=[
+                "bowtie2",
+                "--quiet",
+                "--mm",
+                "--norc",
+                "--local",
+                "-L",
+                "15",
+                "--ma",
+                "1",
+                "--mp",
+                "2,2",
+                "--rdg",
+                "3,1",
+                "--rfg",
+                "3,1",
+                "--score-min",
+                "C,1",
+                "-r",
+                "-x",
+                (root_dir / "barcode" / "barcode").as_posix(),
+                "-U",
+                (root_dir / "bowtie2" / csv_file).as_posix(),
+                "-S",
+                (
+                    root_dir / "bowtie2" / f"{pathlib.Path(csv_file).stem}.sam"
+                ).as_posix(),
+            ],
+        )
+
+
+def parse_barcode(root_dir: os.PathLike):
+    root_dir = pathlib.Path(root_dir)
+    os.makedirs(root_dir / "parse_bar", exist_ok=True)
+    for sam_file in os.listdir(root_dir / "bowtie2"):
+        if not sam_file.endswith(".sam"):
+            continue
+
+        sam = pysam.AlignmentFile(root_dir / "bowtie2" / sam_file)
+        barcode_heads = []
+        barcodes = []
+        CTG_target_prefixs = []
+        barcode_ids = []
+        barcode_scores = []
+        for align in sam.fetch():
+            if (align.flag // 4) % 2 == 1:
+                barcode_heads.append("")
+                barcodes.append("")
+                CTG_target_prefixs.append(align.seq if align.seq != "N" else "")
+                barcode_ids.append(-1)
+                barcode_scores.append(0)
+            else:
+                barcode_heads.append(align.seq[: align.qstart])
+                barcodes.append(align.seq[align.qstart : align.qend])
+                CTG_target_prefixs.append(align.seq[align.qend :])
+                barcode_ids.append(align.rname)
+                barcode_scores.append(align.get_tag("AS"))
+
+        df_parse = (
+            pd.read_csv(
+                root_dir / "parse" / f"{pathlib.Path(sam_file).stem}.parse",
+                sep="\t",
+                header=0,
+                keep_default_na=False,
+            )
+            .drop(columns="barcode_CTG_target_prefix")
+            .assign(
+                barcode_head=barcode_heads,
+                barcode=barcodes,
+                CTG_target_prefix=CTG_target_prefixs,
+                barcode_id=barcode_ids,
+                barcode_score=barcode_scores,
+            )[
+                [
+                    "R1_barcode",
+                    "R1_primer",
+                    "G",
+                    "R1_sgRNA",
+                    "R1_scaffold_prefix",
+                    "R1_tail",
+                    "R1_primer_score",
+                    "R1_scaffold_prefix_score",
+                    "R2_barcode",
+                    "R2_primer",
+                    "barcode_head",
+                    "barcode",
+                    "CTG_target_prefix",
+                    "R2_sgRNA",
+                    "pam",
+                    "target_suffix",
+                    "C",
+                    "R2_scaffold_prefix",
+                    "R2_tail",
+                    "R2_primer_score",
+                    "R2_scaffold_prefix_score",
+                    "R2_sgRNA_score",
+                    "barcode_score",
+                    "barcode_id",
+                    "count",
+                ]
+            ]
+        )
+
+        df_parse.to_feather(
+            root_dir / "parse_bar" / f"{pathlib.Path(sam_file).stem}.parse"
+        )

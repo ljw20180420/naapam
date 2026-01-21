@@ -36,4 +36,4 @@ a_pam_tail:
   - "AA"
 g_pam_tail:
   - "GG"
-min_count: 1
+min_count: 3

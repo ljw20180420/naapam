@@ -1,9 +1,9 @@
 import os
 import pathlib
 import subprocess
-from typing import Iterator
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from . import utils
@@ -247,6 +247,7 @@ def filter_control(
         df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
 
         df_control.to_feather(root_dir / "control" / "filter" / f"{chip}.feather")
+        del df_control
 
 
 def collect_treat(root_dir: os.PathLike):
@@ -376,7 +377,7 @@ def reference(
             + df["ref2"],
         )
         df_ref[["zero", "ref1", "cut", "ext", "ref2", "ref2len"]].to_csv(
-            root_dir / "ref" / f"{chip}.ref", sep="\t", header=False
+            root_dir / "ref" / f"{chip}.ref", sep="\t", header=False, index=False
         )
 
 
@@ -390,7 +391,9 @@ def demultiplex(
     os.makedirs(root_dir / "query", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "filter"):
         chip = utils.infer_chip(treat_file)
-        save_dir = pathlib.Path(f"figures/align/demultiplex/{chip}")
+        save_dir = pathlib.Path(
+            f"figures/align/demultiplex/{chip}/{pathlib.Path(treat_file).stem}"
+        )
         os.makedirs(save_dir, exist_ok=True)
 
         df_ref = pd.read_feather(
@@ -404,10 +407,9 @@ def demultiplex(
             "R1_scaffold_prefix",
             "R2_primer",
             "C",
-            "R2_scaffold_prefix",
         ]
         df_query = (
-            pd.read_feather(treat_file)
+            pd.read_feather(root_dir / "treat" / "filter" / treat_file)
             .assign(
                 query=lambda df: df["R2_primer"]
                 + df["barcode_CTG_target_prefix"]
@@ -426,29 +428,51 @@ def demultiplex(
         )
 
         # Get ref number distribution for each query.
-        df_demultiplex = df_query.groupby("query").agg(
-            ref_num=pd.NamedAgg(column="query", aggfunc="size"),
-            ref_id=pd.NamedAgg(column="ref_id", aggfunc="first"),
-            count=pd.NamedAgg(column="count", aggfunc="first"),
+        df_ref_num = (
+            df_query.groupby("query")
+            .agg(
+                ref_num=pd.NamedAgg(column="query", aggfunc="size"),
+                ref_id=pd.NamedAgg(column="ref_id", aggfunc="first"),
+                count=pd.NamedAgg(column="count", aggfunc="first"),
+            )
+            .reset_index(drop=True)
         )
-        df_demultiplex.loc[df_demultiplex["ref_id"].isna(), "ref_num"] = 0
-        df_demultiplex["ref_num"].plot.hist(
-            bins=100, weights=df_demultiplex["count"]
+        df_ref_num.loc[df_ref_num["ref_id"].isna(), "ref_num"] = 0
+
+        df_ref_num.query("ref_num == 0")["count"].clip(upper=300).plot.hist(
+            bins=np.linspace(0, 301, 302), logy=True
+        ).get_figure().savefig(save_dir / "vanish_count.pdf")
+        plt.close("all")
+
+        df_ref_num = df_ref_num.groupby("ref_num")["count"].sum().reset_index()
+        df_ref_num.to_csv(save_dir / "ref_num.csv", index=False)
+        df_ref_num["ref_num"].clip(upper=300).plot.hist(
+            bins=np.linspace(0, 301, 302), weights=df_ref_num["count"], logy=True
         ).get_figure().savefig(save_dir / "ref_num.pdf")
+        plt.close("all")
 
         # Get query count distribution for each ref. Queries with multiple refs are distributed to each ref evenly.
-        df_query.assign(
-            ref_num=lambda df: df.groupby("query").transform("size"),
-            count=lambda df: df["count"] / df["ref_num"],
-            ref_id=lambda df: df["ref_id"].fillna(-1),
-        ).groupby("ref_id")["count"].sum().plot.bar().get_figure().savefig(
-            save_dir / "count.pdf"
+        df_count = (
+            df_query.assign(
+                ref_num=lambda df: df.groupby("query").transform("size"),
+                count=lambda df: df["count"] / df["ref_num"],
+                ref_id=lambda df: df["ref_id"].fillna(-1),
+            )
+            .groupby("ref_id")["count"]
+            .sum()
+            .reset_index()
         )
+        df_count.to_csv(save_dir / "count.csv", index=False)
+        # df_count.set_index("ref_id")["count"].plot.bar().get_figure().savefig(
+        #     save_dir / "count.pdf"
+        # )
+        # plt.close("all")
 
         df_query.query("not ref_id.isna()").reset_index(drop=True).astype(
             {"ref_id": int}
         )[["query", "count", "ref_id"]].to_csv(
-            root_dir / "query" / f"{treat_file.stem}.query",
+            root_dir / "query" / f"{pathlib.Path(treat_file).stem}.query",
             sep="\t",
             header=False,
+            index=False,
         )
