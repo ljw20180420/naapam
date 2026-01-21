@@ -4,30 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def m_synerr(df_control: pd.DataFrame) -> pd.Series:
-    m_synerr = df_control["count"] / df_control["count_tot"]
-    m_synerr.loc[df_control["is_wt"]] = float("nan")
-    os.makedirs("figures/hists/control/mutant", exist_ok=True)
-    m_synerr.plot.hist(bins=100).get_figure().savefig(
-        "figures/hists/control/mutant/m_synerr.pdf"
-    )
-    plt.close("all")
-    return m_synerr
-
-
-def mutant_legal(df_control: pd.DataFrame, max_m_synerr: float) -> pd.DataFrame:
-    """
-    A proper mutant legal condition satisfies that if a mutant is missing in control, then the mutant is legal. A non-proper example is the lower bound of total read counts of a mutant. A missing mutant has 0 count, which is always illegal.
-
-    If a mutant legal condition is only determined by the mutant itself but not its count (like mutant indel size), then it is redundant to apply the condition to both control and treat.
-    """
-    df_control["mutant_legal"] = (m_synerr(df_control) <= max_m_synerr) | df_control[
-        "is_wt"
-    ]
-
-    return df_control
-
-
 def b_synerr(df_control: pd.DataFrame) -> pd.Series:
     b_synerr = 1 - df_control["count_wt"] / df_control["count_tot"]
     os.makedirs("figures/hists/control/barcode", exist_ok=True)

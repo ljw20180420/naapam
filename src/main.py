@@ -66,7 +66,8 @@ def correct_index(
 
 def stat_read(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/hists")
+    save_dir = pathlib.Path("figures/hists/read")
+    os.makedirs(save_dir, exist_ok=True)
     df_algs = []
     for alg_file in os.listdir(root_dir / "align_correct"):
         df_algs.append(
@@ -129,25 +130,26 @@ def collect_data(
 
 
 def stat_mutant(df_alg: pd.DataFrame):
-    df_alg = (
-        utils.up_del_size(df_alg)
-        .plot.hist(bins=30, weights=df_alg["count"])
-        .get_figure()
-        .savefig("figures/hists/up_del_size.pdf")
-    )
+    save_dir = pathlib.Path("figures/hists/mutant")
+    os.makedirs(save_dir, exist_ok=True)
+
+    utils.up_del_size(df_alg).plot.hist(
+        bins=30, weights=df_alg["count"]
+    ).get_figure().savefig(save_dir / "up_del_size.pdf")
     plt.close("all")
-    df_alg = (
-        utils.down_del_size(df_alg)
-        .plot.hist(bins=30, weights=df_alg["count"])
-        .get_figure()
-        .savefig("figures/hists/down_del_size.pdf")
-    )
+
+    utils.down_del_size(df_alg).plot.hist(
+        bins=30, weights=df_alg["count"]
+    ).get_figure().savefig(save_dir / "down_del_size.pdf")
     plt.close("all")
-    df_alg = (
-        utils.rand_ins_size(df_alg)
-        .plot.hist(bins=30, weights=df_alg["count"])
-        .get_figure()
-        .savefig("figures/hists/rand_ins_size.pdf")
+
+    utils.rand_ins_size(df_alg).plot.hist(
+        bins=30, weights=df_alg["count"]
+    ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
+    plt.close("all")
+
+    utils.mutant_freq(df_alg).plot.hist(bins=100).get_figure().savefig(
+        save_dir / "mutant_freq.pdf"
     )
     plt.close("all")
 
@@ -157,10 +159,17 @@ def filter_mutant(
     max_up_del_size: int,
     max_down_del_size: int,
     max_rand_ins_size: int,
+    max_mutant_freq: float,
 ) -> pd.DataFrame:
     mask = (
         (utils.up_del_size(df_alg) <= max_up_del_size)
         & (utils.down_del_size(df_alg) <= max_down_del_size)
         & (utils.rand_ins_size(df_alg) <= max_rand_ins_size)
+        & ((utils.mutant_freq(df_alg) <= max_mutant_freq) | utils.is_wt(df_alg))
     )
     return df_alg.loc[mask].reset_index(drop=True)
+
+
+def stat_ref(df_alg: pd.DataFrame):
+    save_dir = pathlib.Path("figures/hists/ref")
+    os.makedirs(save_dir, exist_ok=True)

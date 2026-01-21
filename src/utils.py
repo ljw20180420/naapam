@@ -169,6 +169,13 @@ def is_wt(df: pd.DataFrame) -> pd.Series:
     )
 
 
+def mutant_freq(df: pd.DataFrame) -> pd.Series:
+    mutant_freq = df["count"] / df.groupby(["stem", "ref_id"])["count"].transform("sum")
+    mutant_freq.loc[is_wt(df)] = float("nan")
+
+    return mutant_freq
+
+
 def count_wt(df: pd.DataFrame) -> pd.Series:
     return (
         df[["stem", "ref_id"]]
