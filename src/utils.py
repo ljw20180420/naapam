@@ -169,11 +169,11 @@ def is_wt(df: pd.DataFrame) -> pd.Series:
     )
 
 
-def mutant_freq(df: pd.DataFrame) -> pd.Series:
-    mutant_freq = df["count"] / df.groupby(["stem", "ref_id"])["count"].transform("sum")
-    mutant_freq.loc[is_wt(df)] = float("nan")
+def freq_mutant(df: pd.DataFrame) -> pd.Series:
+    freq_mutant = df["count"] / df.groupby(["stem", "ref_id"])["count"].transform("sum")
+    freq_mutant.loc[is_wt(df)] = float("nan")
 
-    return mutant_freq
+    return freq_mutant
 
 
 def count_wt(df: pd.DataFrame) -> pd.Series:
@@ -189,6 +189,14 @@ def count_wt(df: pd.DataFrame) -> pd.Series:
     )
 
 
+def freq_nowt(df: pd.DataFrame) -> pd.Series:
+    freq_nowt = 1 - count_wt(df) / df.groupby(["stem", "ref_id"])["count"].transform(
+        "sum"
+    )
+
+    return freq_nowt
+
+
 def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
     return (
         df[["stem", "ref_id"]]
@@ -202,3 +210,11 @@ def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
         )["count"]
         .fillna(0)
     )
+
+
+def freq_temN(df: pd.DataFrame, tem: int) -> pd.Series:
+    freq_temN = count_temN(df, tem) / df.groupby(["stem", "ref_id"])["count"].transform(
+        "sum"
+    )
+
+    return freq_temN

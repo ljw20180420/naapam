@@ -148,8 +148,8 @@ def stat_mutant(df_alg: pd.DataFrame):
     ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
     plt.close("all")
 
-    utils.mutant_freq(df_alg).plot.hist(bins=100).get_figure().savefig(
-        save_dir / "mutant_freq.pdf"
+    utils.freq_mutant(df_alg).plot.hist(bins=100).get_figure().savefig(
+        save_dir / "freq_mutant.pdf"
     )
     plt.close("all")
 
@@ -159,13 +159,13 @@ def filter_mutant(
     max_up_del_size: int,
     max_down_del_size: int,
     max_rand_ins_size: int,
-    max_mutant_freq: float,
+    max_freq_mutant: float,
 ) -> pd.DataFrame:
     mask = (
         (utils.up_del_size(df_alg) <= max_up_del_size)
         & (utils.down_del_size(df_alg) <= max_down_del_size)
         & (utils.rand_ins_size(df_alg) <= max_rand_ins_size)
-        & ((utils.mutant_freq(df_alg) <= max_mutant_freq) | utils.is_wt(df_alg))
+        & ((utils.freq_mutant(df_alg) <= max_freq_mutant) | utils.is_wt(df_alg))
     )
     return df_alg.loc[mask].reset_index(drop=True)
 
@@ -173,3 +173,37 @@ def filter_mutant(
 def stat_ref(df_alg: pd.DataFrame):
     save_dir = pathlib.Path("figures/hists/ref")
     os.makedirs(save_dir, exist_ok=True)
+
+    df_alg.groupby(["stem", "ref_id"])["count"].sum().plot.hist(
+        bins=100
+    ).get_figure().savefig(save_dir / "count_tot.pdf")
+    plt.close("all")
+
+    df_alg.assign(freq_nowt=utils.freq_nowt(df_alg))[
+        ["stem", "ref_id", "freq_nowt"]
+    ].drop_duplicates()["freq_nowt"].plot.hist(bins=100).get_figure().savefig(
+        save_dir / "freq_nowt.pdf"
+    )
+    plt.close("all")
+
+    for tem in range(1, 5):
+        df_alg.assign(**{f"freq_tem{tem}": utils.freq_temN(df_alg, tem)})[
+            ["stem", "ref_id", f"freq_tem{tem}"]
+        ].drop_duplicates()[f"freq_tem{tem}"].plot.hist(bins=100).get_figure().savefig(
+            save_dir / f"freq_tem{tem}.pdf"
+        )
+        plt.close("all")
+
+
+def filter_ref(
+    df_alg: pd.DataFrame,
+    min_count_tot: int,
+    max_freq_nowt: float,
+    max_freq_temN: dict[int, float],
+) -> pd.DataFrame:
+    mask = df_alg.groupby(["stem", "ref_id"])["count"].transform("sum") >= min_count_tot
+    mask = mask & (utils.freq_nowt(df_alg) <= max_freq_nowt)
+    for tem in range(1, 5):
+        mask = mask & (utils.freq_temN(df_alg, tem) <= max_freq_temN[tem])
+
+    return df_alg.loc[mask].reset_index(drop=True)
