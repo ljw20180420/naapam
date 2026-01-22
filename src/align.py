@@ -120,13 +120,14 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         "barcode",
         "CTG_target_prefix",
         "R2_sgRNA",
+        "pam",
         "target_suffix",
         "R2_scaffold_prefix",
         "R2_tail",
-        "pam",
     ]:
         df_stat = (
-            df.assign(**{f"{column}_length": lambda df: df[column].str.len()})
+            df[[column, "count"]]
+            .assign(**{f"{column}_length": lambda df: df[column].str.len()})
             .groupby(f"{column}_length")["count"]
             .sum()
             .reset_index()
@@ -147,11 +148,12 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
     ]:
         if column == "pam_tail":
             df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
-        df_stat = df.groupby(column)["count"].sum().reset_index()
+        df_stat = df[[column, "count"]].groupby(column)["count"].sum().reset_index()
         df_stat.to_csv(save_dir / f"{column}.csv", index=False)
 
     df_stat = (
-        df.groupby("count")
+        df[["count"]]
+        .groupby("count")
         .size()
         .reset_index()
         .rename(columns={"count": "count_full", 0: "count"})
@@ -159,7 +161,7 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
     df_stat.to_csv(save_dir / f"count_full.csv", index=False)
 
     df_stat = (
-        df.clip[["count"]](upper=300).groupby("count").size().reset_index()
+        df[["count"]].clip(upper=300).groupby("count").size().reset_index()
     ).rename(columns={"count": "count_small", 0: "count"})
     df_stat.to_csv(save_dir / f"count_small.csv", index=False)
 
@@ -167,6 +169,7 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
 def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
     os.makedirs(summary_dir, exist_ok=True)
     save_dirs = [pathlib.Path(os.fspath(save_dir)) for save_dir in save_dirs]
+    summary_dir = pathlib.Path(summary_dir)
     for csv_file in os.listdir(save_dirs[0]):
         df_stat = pd.concat(
             [pd.read_csv(save_dir / csv_file, header=0) for save_dir in save_dirs]
@@ -196,6 +199,7 @@ def stat_control(root_dir: os.PathLike):
             save_dirs=[f"figures/align/stat/control/{chip}"],
             summary_dir=f"figures/align/stat/control/{chip}",
         )
+        del df_control
 
 
 def filter_control(
@@ -276,7 +280,15 @@ def filter_control(
         del df_control
 
 
-def reference(
+def group_stat_control():
+    pass
+
+
+def group_filter_control():
+    pass
+
+
+def generate_reference(
     root_dir: os.PathLike,
     ext: int = 10,
 ):
@@ -432,12 +444,13 @@ def demultiplex(
         ).reset_index(names="ref_id")
 
         on = [
-            "R1_primer",
-            "G",
-            "R1_sgRNA",
-            "R1_scaffold_prefix",
-            "R2_primer",
-            "barcode_id" "C",
+            # "R1_primer",
+            # "G",
+            # "R1_sgRNA",
+            # "R1_scaffold_prefix",
+            # "R2_primer",
+            "barcode_id",
+            # "C",
         ]
         df_query = (
             pd.read_feather(root_dir / "treat" / "filter" / treat_file)
