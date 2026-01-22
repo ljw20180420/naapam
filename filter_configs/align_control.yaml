@@ -11,7 +11,7 @@ range_R2_primer_length:
   - 21
 range_barcode_head_length:
   - 0
-  - 2
+  - 1
 range_barcode_length:
   - 16
   - 19
