@@ -103,8 +103,9 @@ def collect_control(
                 ).drop(columns=["R1_barcode", "R2_barcode"])
             )
 
-        df_control = agg(pd.concat(df_controls))
-        df_control.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
+        df_controls = pd.concat(df_controls)
+        df_controls = agg(df_controls)
+        df_controls.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
 
 
 def stat(df: pd.DataFrame, save_dir: os.PathLike):
@@ -177,14 +178,29 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
         name = (
             df_stat.columns[0] if df_stat.columns[0] != "count" else df_stat.columns[1]
         )
-        if name in ["G", "C", "pam_tail", "barcode_id"]:
-            df_stat.groupby(name)["count"].sum().plot.bar().get_figure().savefig(
-                summary_dir / f"{pathlib.Path(csv_file).stem}.pdf"
-            )
+        if name in [
+            "barcode_id",
+            "count_full",
+            "count_small",
+            "R1_primer_length",
+            "R2_primer_length",
+        ]:
+            logy = True
+        else:
+            logy = False
+
+        if name in ["G", "C", "pam_tail"]:
+            df_stat.groupby(name)["count"].sum().plot.bar(
+                logy=logy
+            ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
+        elif name == "barcode_id":
+            df_stat.groupby(name)["count"].sum().reset_index().plot.scatter(
+                x=name, y="count", logy=logy
+            ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
         else:
             bins = 300 if name.endswith("score") else 150
             df_stat[name].plot.hist(
-                bins=bins, weights=df_stat["count"]
+                bins=bins, weights=df_stat["count"], logy=logy
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
 
         plt.close("all")
