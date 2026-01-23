@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] 按照reference的count数比例分配treat中read的count数
 - [ ] 更好地估计max_freq_temN（画图）
 - [ ] group_stat_control
 - [ ] group_filter_control
