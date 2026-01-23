@@ -187,7 +187,7 @@ def filter_mutant(
     return df_alg
 
 
-def stat_ref(df_alg: pd.DataFrame):
+def stat_ref(df_alg: pd.DataFrame, min_count_tot: int):
     save_dir = pathlib.Path("figures/hists/ref")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -204,12 +204,40 @@ def stat_ref(df_alg: pd.DataFrame):
     plt.close("all")
 
     for tem in range(1, 5):
-        df_alg.assign(**{f"freq_tem{tem}": utils.freq_temN(df_alg, tem)})[
-            ["stem", "ref_id", f"freq_tem{tem}"]
-        ].drop_duplicates()[f"freq_tem{tem}"].plot.hist(bins=100).get_figure().savefig(
-            save_dir / f"freq_tem{tem}.pdf"
+        df_alg_freq = (
+            df_alg.assign(
+                **{
+                    "count_tot": lambda df: df.groupby(["stem", "ref_id"])[
+                        "count"
+                    ].transform("sum"),
+                    f"freq_tem{tem}": lambda df: utils.freq_temN(df, tem),
+                    f"freq_tem{tem}_blunt": lambda df: utils.freq_temN_blunt(df, tem),
+                    f"freq_tem{tem}_dummy_rel_blunt": lambda df: utils.freq_temN_dummy_rel_blunt(
+                        df, tem
+                    ),
+                }
+            )
+            .query("count_tot >= @min_count_tot")[
+                [
+                    "stem",
+                    "ref_id",
+                    f"freq_tem{tem}",
+                    f"freq_tem{tem}_blunt",
+                    f"freq_tem{tem}_dummy_rel_blunt",
+                ]
+            ]
+            .drop_duplicates()
         )
-        plt.close("all")
+
+        for column in [
+            f"freq_tem{tem}",
+            f"freq_tem{tem}_blunt",
+            f"freq_tem{tem}_dummy_rel_blunt",
+        ]:
+            df_alg_freq[column].plot.hist(bins=100).get_figure().savefig(
+                save_dir / f"{column}.pdf"
+            )
+            plt.close("all")
 
 
 def filter_ref(

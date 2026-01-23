@@ -216,9 +216,38 @@ def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
     )
 
 
+def count_temN_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
+    return (
+        df[["stem", "ref_id"]]
+        .merge(
+            right=df.query(
+                'ref_end1 == cut1 and ref_start2 + @tem == cut2 and random_insertion == ""'
+            )[["stem", "ref_id", "count"]],
+            how="left",
+            on=["stem", "ref_id"],
+            validate="many_to_one",
+        )["count"]
+        .fillna(0)
+    )
+
+
 def freq_temN(df: pd.DataFrame, tem: int) -> pd.Series:
     freq_temN = count_temN(df, tem) / df.groupby(["stem", "ref_id"])["count"].transform(
         "sum"
     )
 
     return freq_temN
+
+
+def freq_temN_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
+    freq_temN_blunt = count_temN_blunt(df, tem) / df.groupby(["stem", "ref_id"])[
+        "count"
+    ].transform("sum")
+
+    return freq_temN_blunt
+
+
+def freq_temN_dummy_rel_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
+    freq_temN_dummy_rel_blunt = count_temN(df, tem) / (count_temN_blunt(df, tem) + 1e-6)
+
+    return freq_temN_dummy_rel_blunt
