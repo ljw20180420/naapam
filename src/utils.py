@@ -123,6 +123,10 @@ def RCscaffold_alt(chip: str) -> str:
     return str(Seq.Seq(scaffold_alt(chip)).reverse_complement())
 
 
+def rev_comp(seq: str) -> str:
+    return str(Seq.Seq(seq).reverse_complement())
+
+
 #################################################
 # main
 #################################################
