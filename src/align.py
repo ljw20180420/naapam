@@ -518,7 +518,7 @@ def group_filter_control(
             ).map(utils.rev_comp),
         ).reset_index(names="barcode_id")
 
-        df_ref = df_count[["barcode_id", "dominant"]].merge(
+        df_ref = df_count[["barcode_id", "dominant", "first"]].merge(
             right=df_plasmid[["barcode_id", "ref"]],
             how="left",
             on=["barcode_id"],

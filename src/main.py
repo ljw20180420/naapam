@@ -57,6 +57,18 @@ def correct_index(
             keep_default_na=False,
         )
         df_alg["index"] = df_query.groupby("query").transform("ngroup")
+
+        chip = utils.infer_chip(alg_file)
+        df_ref = pd.read_csv(
+            root_dir / "ref" / "barcode" / f"{chip}.csv", header=0
+        ).reset_index(names="ref_id")
+        df_alg = df_alg.merge(
+            right=df_ref[["ref_id", "first"]],
+            how="left",
+            on=["ref_id"],
+            validate="many_to_one",
+        )
+
         with open(root_dir / "align_correct" / alg_file, "w") as fd:
             for _, row in df_alg.iterrows():
                 fd.write("\t".join(row.drop(["ref", "query"]).astype(str)) + "\n")
@@ -96,11 +108,12 @@ def collect_data(
         df_alg = read_alg(root_dir / "align_correct" / alg_file)
         if df_alg.shape[0] == 0:
             continue
+
         df_alg = (
             df_alg.query("score >= @min_score")
             .assign(
-                size=lambda df: df.groupby("index").transform("size"),
-                count=lambda df: df["count"] / df["size"],
+                count=lambda df: df["count"]
+                * (df["first"] / df.groupby("index")["first"].transform("sum")),
             )
             .groupby(
                 [
