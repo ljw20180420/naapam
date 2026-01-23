@@ -767,11 +767,11 @@ def draw_demultiplex():
         .reset_index(drop=True)
         .pivot_table(values="count", index="stem", columns="found", aggfunc="sum")
     )
-    df_found.set_index("stem").plot.bar(stacked=True).get_figure().savefig(
-        save_dir / "found.pdf"
-    )
+    df_found.plot.bar(stacked=True).get_figure().savefig(save_dir / "found.pdf")
     pd.concat(df_query_count_per_refs).groupby("ref_id")[
         "count"
-    ].sum().reset_index().plot.scatter(x="ref_id", y="count").get_figure().savefig(
+    ].sum().reset_index().plot.scatter(
+        x="ref_id", y="count", logy=True
+    ).get_figure().savefig(
         save_dir / "query_count_per_ref.pdf"
     )
