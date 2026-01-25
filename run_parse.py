@@ -7,7 +7,7 @@ import sys
 from src import parse, utils
 
 unique_file = pathlib.Path(sys.argv[1])
-parse_file = unique_file.parent.parent / "parse" / f"{unique_file.stem}.parse"
+parse_file = unique_file.parent.parent / "parse" / "nobar" / f"{unique_file.stem}.parse"
 os.makedirs(parse_file.parent, exist_ok=True)
 chip = utils.infer_chip(unique_file)
 embedding_aligner = parse.get_embedding_aligner()
