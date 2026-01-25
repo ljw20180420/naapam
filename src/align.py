@@ -91,7 +91,7 @@ def collect_control(
     os.makedirs(root_dir / "control" / "full", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         df_controls = []
-        for parse_file in os.listdir(root_dir / "parse_bar"):
+        for parse_file in os.listdir(root_dir / "parse" / "bar"):
             if (
                 utils.infer_cas(parse_file) != "control"
                 or utils.infer_chip(parse_file) != chip
@@ -99,7 +99,7 @@ def collect_control(
                 continue
             df_controls.append(
                 pd.read_feather(
-                    root_dir / "parse_bar" / parse_file,
+                    root_dir / "parse" / "bar" / parse_file,
                 ).drop(columns=["R1_barcode", "R2_barcode"])
             )
 
@@ -212,14 +212,14 @@ def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
-        stat(df=df_control, save_dir=f"figures/align/stat/control/{chip}")
+        stat(df=df_control, save_dir=f"figures/align/stat_control/{chip}")
         draw(
-            save_dirs=[f"figures/align/stat/control/{chip}"],
-            summary_dir=f"figures/align/stat/control/{chip}",
+            save_dirs=[f"figures/align/stat_control/{chip}"],
+            summary_dir=f"figures/align/stat_control/{chip}",
         )
 
 
-def filter_control(
+def filter_nofunc_control(
     root_dir: os.PathLike,
     range_R1_primer_length: list[int],
     range_R1_sgRNA_length: list[int],
@@ -247,9 +247,9 @@ def filter_control(
     min_count: int,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "control" / "filter", exist_ok=True)
+    os.makedirs(root_dir / "control" / "func", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/filter/control/{chip}")
+        save_dir = pathlib.Path(f"figures/align/filter_nofunc_control/{chip}")
         os.makedirs(save_dir, exist_ok=True)
         df_stat = pd.DataFrame(columns=["row_num", "count"], index=["full", "filter"])
 
@@ -298,141 +298,139 @@ def filter_control(
             save_dir / "count.pdf"
         )
 
-        df_control.to_feather(root_dir / "control" / "filter" / f"{chip}.feather")
+        df_control.to_feather(root_dir / "control" / "func" / f"{chip}.feather")
 
 
-def group_stat_control(root_dir: os.PathLike, ext: int, percentage: float):
+def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
     root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "control" / "cluster", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/stat/group/control/{chip}")
-        os.makedirs(save_dir, exist_ok=True)
-        df_control = pd.read_feather(
-            root_dir / "control" / "filter" / f"{chip}.feather"
-        )
-        df_control = df_control.assign(
-            ref1=lambda df: df["R2_primer"]
-            + df["barcode_head"]
-            + df["barcode"]
-            + df["CTG_target_prefix"]
-            + df["R2_sgRNA"].str.slice(stop=-3),
-            ref2=lambda df: df["R2_sgRNA"].str.slice(start=-3)
-            + df["pam"]
-            + df["target_suffix"]
-            + df["C"]
-            + df["R2_scaffold_prefix"]
-            + df["R2_tail"],
-        )
-        assert (
-            df_control["ref1"].str.len() >= ext
-        ).all(), f"ref1 too short (less than {ext})"
-        assert (
-            df_control["ref2"].str.len() >= ext
-        ).all(), f"ref2 too short (less than {ext})"
-        df_control = (
-            df_control.assign(
-                cut_around=lambda df: df["ref1"].str.slice(start=-ext)
-                + df["ref2"].str.slice(stop=ext)
-            )
-            .groupby(["barcode_id", "cut_around"])["count"]
-            .sum()
-            .reset_index()
-        )
-        df_control = (
-            df_control.sort_values("count")
-            .reset_index(drop=True)
-            .assign(
-                enrich=lambda df: df.groupby("barcode_id")["count"].transform("cumsum")
-                / df.groupby("barcode_id")["count"].transform("sum")
-                >= 1 - percentage,
-            )
-        )
-
-        df_stat = (
-            df_control.query("enrich")
-            .groupby("barcode_id")
-            .size()
-            .reset_index()
-            .rename(columns={0: "cut_around_type_num"})
-        )
-        df_stat.to_csv(save_dir / "cut_around_type_num.csv", index=False)
-
-        df_stat.plot.scatter(
-            x="barcode_id", y="cut_around_type_num"
-        ).get_figure().savefig(save_dir / "cut_around_type_num.pdf")
-        plt.close("all")
-
-        df_stat["cut_around_type_num"].clip(upper=100).plot.hist(
-            bins=np.linspace(0, 101, 102)
-        ).get_figure().savefig(save_dir / "cut_around_type_num_hist.pdf")
-        plt.close("all")
-
         if chip in ["a1", "a2", "a3"]:
             df_plasmid = pd.read_csv(
                 "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
             )
         else:
             df_plasmid = pd.read_csv("plasmids/final_hgsgrna_libb_all_0811-NGG.csv")
+        df_plasmid = df_plasmid.assign(
+            ref2=lambda df: (
+                "AAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGCTTTTTTG"
+                + df["Target sequence"].str.slice(stop=22 + ext)
+            ).map(utils.rev_comp),
+            ref1=lambda df: (
+                df["Target sequence"].str.slice(start=22 - ext)
+                + "CAG"
+                + df["Barcode2"]
+                + df["Primer binding sites 20nt"]
+            ).map(utils.rev_comp),
+            cut=lambda df: df["ref1"].str.len() - ext,
+            ext=ext,
+        ).reset_index(names="barcode_id")
 
-        df_plasmid = (
-            df_plasmid[["Target sequence"]]
-            .rename(columns={"Target sequence": "target"})
-            .reset_index(names="barcode_id")
-            .assign(
-                wt_cut_around=lambda df: df["target"]
-                .str.slice(start=22 - ext, stop=22 + ext)
-                .map(utils.rev_comp),
-            )
-        )
-
-        for tem in range(1, 5):
-            df_plasmid = df_plasmid.assign(
-                **{
-                    f"tem{tem}_cut_around": lambda df: (
-                        df["target"].str.slice(start=22 - ext, stop=22 + tem)
-                        + df["target"].str.slice(start=22 + tem + 1, stop=22 + ext + 1)
-                    ).map(utils.rev_comp),
-                }
-            )
-
-        df_control = df_control.merge(
-            right=df_plasmid[
-                [
-                    "barcode_id",
-                    "wt_cut_around",
-                    "tem1_cut_around",
-                    "tem2_cut_around",
-                    "tem3_cut_around",
-                    "tem4_cut_around",
-                ]
-            ],
+        df_control = pd.read_feather(root_dir / "control" / "func" / f"{chip}.feather")
+        df_control = df_control.assign(
+            query=lambda df: df["R2_primer"]
+            + df["barcode_head"]
+            + df["barcode"]
+            + df["CTG_target_prefix"]
+            + df["R2_sgRNA"]
+            + df["pam"]
+            + df["target_suffix"]
+            + df["C"]
+            + df["R2_scaffold_prefix"]
+            + df["R2_tail"],
+        )[["barcode_id", "query", "count"]].merge(
+            right=df_plasmid[["barcode_id", "ref1", "ref2", "cut", "ext"]],
             how="left",
             on=["barcode_id"],
             validate="many_to_one",
         )
 
-        df_count = df_control.groupby("barcode_id")[["count"]].sum()
-        cut_arounds = [
-            "wt_cut_around",
-            "tem1_cut_around",
-            "tem2_cut_around",
-            "tem3_cut_around",
-            "tem4_cut_around",
-        ]
-        for i, cut_around in enumerate(cut_arounds):
-            column_count = f"count_{cut_around.split('_', 1)[0]}"
-            df_count[column_count] = df_control.query(
-                f"cut_around == {cut_around}"
-            ).set_index("barcode_id")["count"]
-            df_count[column_count] = df_count[column_count].fillna(0)
-            for j in range(i):
-                df_count.loc[
-                    df_plasmid.loc[df_count.index, cut_around]
-                    == df_plasmid.loc[df_count.index, cut_arounds[j]],
-                    column_count,
-                ] = 0
+        df_alg = utils.call_rearr(
+            df_control["ref1"],
+            df_control["ref2"],
+            df_control["cut"],
+            df_control["ext"],
+            df_control["query"],
+            df_control["count"],
+        )
 
-        df_count = df_count.assign(
-            count_re=lambda df: df["count"]
+        df_control = (
+            df_control.assign(
+                ref_end1=df_alg["ref_end1"],
+                ref_start2=df_alg["ref_start2"],
+                random_insertion=df_alg["random_insertion"],
+                cut1=lambda df: df["cut"],
+                cut2=lambda df: df["cut1"] + 2 * ext,
+            )
+            .groupby(
+                [
+                    "barcode_id",
+                    "ref1",
+                    "ref2",
+                    "cut1",
+                    "cut2",
+                    "ref_end1",
+                    "ref_start2",
+                    "random_insertion",
+                ]
+            )["count"]
+            .sum()
+            .sort_values()
+            .reset_index()
+            .assign(
+                percentage=lambda df: df.groupby("barcode_id")["count"].transform(
+                    "cumsum"
+                )
+                / df.groupby("barcode_id")["count"].transform("sum"),
+                rank=lambda df: df.groupby("barcode_id")["count"].rank(ascending=False),
+            )
+        )
+
+        # count_wt
+        df_control = (
+            df_control.merge(
+                right=df_control.query(
+                    """
+                    ref_end1 == cut1 and \
+                    ref_start2 == cut2 and \
+                    random_insertion == ""
+                """
+                )[["barcode_id", "count"]].rename(columns={"count": "count_wt"}),
+                how="left",
+                on=["barcode_id"],
+                validate="many_to_one",
+            )
+            .assign(**{"count_wt": lambda df: df["count_wt"].fillna(0)})
+            .astype({"count_wt": int})
+        )
+
+        # count_temN
+        for tem in range(1, 5):
+            df_control = (
+                df_control.merge(
+                    right=df_control.query(
+                        """
+                        ref_end1 + @tem + 1 == cut1 and \
+                        ref_start2 + @tem == cut2 and \
+                        random_insertion == ""
+                    """
+                    )[["barcode_id", "count"]].rename(
+                        columns={"count": f"count_tem{tem}"}
+                    ),
+                    how="left",
+                    on=["barcode_id"],
+                    validate="many_to_one",
+                )
+                .assign(
+                    **{f"count_tem{tem}": lambda df: df[f"count_tem{tem}"].fillna(0)}
+                )
+                .astype({f"count_tem{tem}": int})
+            )
+
+        # count_tot, count_re (remain), first, second
+        df_control = df_control.assign(
+            count_tot=lambda df: df.groupby("barcode_id")["count"].transform("sum"),
+            count_re=lambda df: df["count_tot"]
             - df["count_wt"]
             - df["count_tem1"]
             - df["count_tem2"]
@@ -444,23 +442,97 @@ def group_stat_control(root_dir: os.PathLike, ext: int, percentage: float):
             second=lambda df: df[
                 ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
             ].apply(lambda row: row.nlargest(2).min(), axis=1),
-        ).reset_index()
+        )
 
-        df_count.to_csv(save_dir / "count.csv", index=False)
+        df_control.to_feather(root_dir / "control" / "cluster" / f"{chip}.feather")
 
-        df_count["count"].clip(upper=300).plot.hist(
+
+def stat_func_control(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        save_dir = pathlib.Path(f"figures/align/stat_func_control/{chip}")
+        os.makedirs(save_dir, exist_ok=True)
+        df_control = pd.read_feather(
+            root_dir / "control" / "cluster" / f"{chip}.feather"
+        )
+
+        # number of mutant types per barcode_id
+        df_stat = (
+            df_control.groupby("barcode_id")
+            .size()
+            .reset_index()
+            .rename(columns={0: "mutant_type_num"})
+        )
+        df_stat.to_csv(save_dir / "mutant_type_num.csv", index=False)
+        df_stat["mutant_type_num"].clip(upper=100).plot.hist(
+            bins=np.linspace(0, 101, 102)
+        ).get_figure().savefig(save_dir / "mutant_type_num.pdf")
+        plt.close("all")
+
+        # up_del_size
+        df_stat = (
+            df_control.assign(up_del_size=lambda df: utils.up_del_size(df))
+            .groupby("up_del_size")["count"]
+            .sum()
+            .reset_index()
+        )
+        df_stat.to_csv(save_dir / "up_del_size.csv", index=False)
+        df_stat.set_index("up_del_size")["count"].plot.bar().get_figure().savefig(
+            save_dir / "up_del_size.pdf"
+        )
+
+        # down_del_size
+        df_stat = (
+            df_control.assign(down_del_size=lambda df: utils.down_del_size(df))
+            .groupby("down_del_size")["count"]
+            .sum()
+            .reset_index()
+        )
+        df_stat.to_csv(save_dir / "down_del_size.csv", index=False)
+        df_stat.set_index("down_del_size")["count"].plot.bar().get_figure().savefig(
+            save_dir / "down_del_size.pdf"
+        )
+
+        # rand_ins_size
+        df_stat = (
+            df_control.assign(rand_ins_size=lambda df: utils.rand_ins_size(df))
+            .groupby("rand_ins_size")["count"]
+            .sum()
+            .reset_index()
+        )
+        df_stat.to_csv(save_dir / "rand_ins_size.csv", index=False)
+        df_stat.set_index("rand_ins_size")["count"].plot.bar().get_figure().savefig(
+            save_dir / "rand_ins_size.pdf"
+        )
+
+        # count
+        df_control["count"].clip(upper=300).plot.hist(
             bins=np.linspace(0, 301, 302),
         ).get_figure().savefig(save_dir / "count.pdf")
         plt.close("all")
 
-        (df_count["count_wt"] / df_count["count"]).plot.hist(
-            bins=100, logy=True
-        ).get_figure().savefig(save_dir / "freq_wt.pdf")
+        # count_tot
+        df_control.groupby("barcode_id")["count_tot"].first().clip(upper=300).plot.hist(
+            bins=np.linspace(0, 301, 302),
+        ).get_figure().savefig(save_dir / "count_tot.pdf")
         plt.close("all")
 
-        (df_count["second"] / (df_count["first"] + 1e-6)).plot.hist(
+        # freq_wt
+        df_control.assign(freq_wt=lambda df: df["count_wt"] / df["count_tot"]).groupby(
+            "barcode_id"
+        )["freq_wt"].first().plot.hist(bins=100, logy=True).get_figure().savefig(
+            save_dir / "freq_wt.pdf"
+        )
+        plt.close("all")
+
+        # second_rel_first
+        df_control.assign(
+            second_rel_first=lambda df: df["second"] / (df["first"] + 1e-6)
+        ).groupby("barcode_id")["second_rel_first"].first().plot.hist(
             bins=100, logy=True
-        ).get_figure().savefig(save_dir / "freq_second.pdf")
+        ).get_figure().savefig(
+            save_dir / "freq_second.pdf"
+        )
         plt.close("all")
 
 
@@ -568,8 +640,6 @@ def collect_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "treat" / "full", exist_ok=True)
     for parse_file in os.listdir(root_dir / "parse_bar"):
-        if utils.infer_cas(parse_file) == "control":
-            continue
         df_treat = pd.read_feather(
             root_dir / "parse_bar" / parse_file,
         ).drop(columns=["R1_barcode", "R2_barcode"])
@@ -582,17 +652,18 @@ def collect_treat(root_dir: os.PathLike):
 
 def stat_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
+
     save_dirs = []
     for treat_file in os.listdir(root_dir / "treat" / "full"):
         df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
-        save_dir = f"figures/align/stat/treat/{pathlib.Path(treat_file).stem}"
-        save_dirs.append(save_dir)
+        save_dir = f"figures/align/stat_treat/{pathlib.Path(treat_file).stem}"
         stat(
             df=df_treat,
             save_dir=save_dir,
         )
+        save_dirs.append(save_dir)
 
-    draw(save_dirs, summary_dir=f"figures/align/stat/treat")
+    draw(save_dirs, summary_dir=f"figures/align/stat_treat")
 
 
 def filter_treat(
