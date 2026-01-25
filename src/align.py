@@ -460,9 +460,10 @@ def stat_func_control(root_dir: os.PathLike):
         df_stat = (
             df_control.groupby("barcode_id")
             .size()
+            .rename("mutant_type_num")
             .reset_index()
-            .rename(columns={0: "mutant_type_num"})
         )
+
         df_stat.to_csv(save_dir / "mutant_type_num.csv", index=False)
         df_stat["mutant_type_num"].clip(upper=100).plot.hist(
             bins=np.linspace(0, 101, 102)
@@ -477,9 +478,10 @@ def stat_func_control(root_dir: os.PathLike):
             .reset_index()
         )
         df_stat.to_csv(save_dir / "up_del_size.csv", index=False)
-        df_stat.set_index("up_del_size")["count"].plot.bar().get_figure().savefig(
-            save_dir / "up_del_size.pdf"
-        )
+        df_stat["up_del_size"].plot.hist(
+            bins=np.linspace(0, 101, 102), weights=df_stat["count"]
+        ).get_figure().savefig(save_dir / "up_del_size.pdf")
+        plt.close("all")
 
         # down_del_size
         df_stat = (
@@ -489,9 +491,10 @@ def stat_func_control(root_dir: os.PathLike):
             .reset_index()
         )
         df_stat.to_csv(save_dir / "down_del_size.csv", index=False)
-        df_stat.set_index("down_del_size")["count"].plot.bar().get_figure().savefig(
-            save_dir / "down_del_size.pdf"
-        )
+        df_stat["down_del_size"].plot.hist(
+            bins=np.linspace(0, 101, 102), weights=df_stat["count"]
+        ).get_figure().savefig(save_dir / "down_del_size.pdf")
+        plt.close("all")
 
         # rand_ins_size
         df_stat = (
@@ -501,9 +504,10 @@ def stat_func_control(root_dir: os.PathLike):
             .reset_index()
         )
         df_stat.to_csv(save_dir / "rand_ins_size.csv", index=False)
-        df_stat.set_index("rand_ins_size")["count"].plot.bar().get_figure().savefig(
-            save_dir / "rand_ins_size.pdf"
-        )
+        df_stat["rand_ins_size"].plot.hist(
+            bins=np.linspace(0, 101, 102), weights=df_stat["count"]
+        ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
+        plt.close("all")
 
         # count
         df_control["count"].clip(upper=300).plot.hist(
@@ -531,7 +535,7 @@ def stat_func_control(root_dir: os.PathLike):
         ).groupby("barcode_id")["second_rel_first"].first().plot.hist(
             bins=100, logy=True
         ).get_figure().savefig(
-            save_dir / "freq_second.pdf"
+            save_dir / "second_rel_first.pdf"
         )
         plt.close("all")
 
