@@ -444,6 +444,11 @@ def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
             ].apply(lambda row: row.nlargest(2).min(), axis=1),
         )
 
+        # mutant_type_num
+        df_control = df_control.assign(
+            mutant_type_num=lambda df: df.groupby("barcode_id").transform("size")
+        )
+
         df_control.to_feather(root_dir / "control" / "cluster" / f"{chip}.feather")
 
 
@@ -457,17 +462,11 @@ def stat_func_control(root_dir: os.PathLike):
         )
 
         # number of mutant types per barcode_id
-        df_stat = (
-            df_control.groupby("barcode_id")
-            .size()
-            .rename("mutant_type_num")
-            .reset_index()
+        df_control.groupby("barcode_id")["mutant_type_num"].first().clip(
+            upper=100
+        ).plot.hist(bins=np.linspace(0, 101, 102)).get_figure().savefig(
+            save_dir / "mutant_type_num.pdf"
         )
-
-        df_stat.to_csv(save_dir / "mutant_type_num.csv", index=False)
-        df_stat["mutant_type_num"].clip(upper=100).plot.hist(
-            bins=np.linspace(0, 101, 102)
-        ).get_figure().savefig(save_dir / "mutant_type_num.pdf")
         plt.close("all")
 
         # up_del_size
@@ -477,7 +476,6 @@ def stat_func_control(root_dir: os.PathLike):
             .sum()
             .reset_index()
         )
-        df_stat.to_csv(save_dir / "up_del_size.csv", index=False)
         df_stat["up_del_size"].plot.hist(
             bins=np.linspace(0, 101, 102), weights=df_stat["count"]
         ).get_figure().savefig(save_dir / "up_del_size.pdf")
@@ -490,7 +488,6 @@ def stat_func_control(root_dir: os.PathLike):
             .sum()
             .reset_index()
         )
-        df_stat.to_csv(save_dir / "down_del_size.csv", index=False)
         df_stat["down_del_size"].plot.hist(
             bins=np.linspace(0, 101, 102), weights=df_stat["count"]
         ).get_figure().savefig(save_dir / "down_del_size.pdf")
@@ -503,7 +500,6 @@ def stat_func_control(root_dir: os.PathLike):
             .sum()
             .reset_index()
         )
-        df_stat.to_csv(save_dir / "rand_ins_size.csv", index=False)
         df_stat["rand_ins_size"].plot.hist(
             bins=np.linspace(0, 101, 102), weights=df_stat["count"]
         ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
@@ -540,7 +536,41 @@ def stat_func_control(root_dir: os.PathLike):
         plt.close("all")
 
 
-def group_filter_control(
+def filter_low_quality_barcode(
+    root_dir: os.PathLike,
+    max_mutant_type_num: int,
+    min_count_tot: int,
+    min_freq_wt: float,
+    max_second_rel_first: float,
+):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "control" / "hq_bar", exist_ok=True)
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        breakpoint()
+        save_dir = pathlib.Path(f"figures/align/filter_low_quality_barcode/{chip}")
+        os.makedirs(save_dir, exist_ok=True)
+        df_control = pd.read_feather(
+            root_dir / "control" / "cluster" / f"{chip}.feather"
+        )
+
+        df_stat = pd.DataFrame(columns=["bar_num"], index=["full", "filter"])
+        df_stat.loc["full", "bar_num"] = df_control["barcode_id"].unique().shape[0]
+
+        df_control = df_control.query(
+            """
+                mutant_type_num <= @max_mutant_type_num and \
+                (count_tot >= @min_count_tot or count_wt / count_tot >= @min_freq_wt) and \
+                second / (first + 1e-6) <= @max_second_rel_first
+            """
+        )
+
+        df_stat.loc["filter", "bar_num"] = df_control["barcode_id"].unique().shape[0]
+        df_stat["bar_num"].plot.bar().get_figure().savefig(save_dir / "bar_num.pdf")
+
+        df_control.to_feather(root_dir / "control" / "hq_bar" / f"{chip}.feather")
+
+
+def filter_low_quality_mutant(
     root_dir: os.PathLike, max_freq_second: float, min_freq_wt: float, min_count: int
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
