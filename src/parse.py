@@ -118,13 +118,13 @@ def R2(
 
 
 def build_barcode(root_dir: os.PathLike):
-    root_dir = pathlib.Path(root_dir)
-    os.makedirs(root_dir / "barcode")
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "bowtie2" / "index", exist_ok=True)
     df_plasmid = pd.read_csv(
         "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv",
         header=0,
     )
-    with open(root_dir / "barcode" / "barcode.fa", "w") as fd:
+    with open(root_dir / "bowtie2" / "index" / "barcode.fa", "w") as fd:
         for i, barcode in enumerate(df_plasmid["Barcode2"]):
             barcode = str(Seq.Seq(barcode).reverse_complement())
             fd.write(f">b{i}\n{barcode}\n")
@@ -132,15 +132,15 @@ def build_barcode(root_dir: os.PathLike):
         subprocess.run(
             args=[
                 "bowtie2-build",
-                (root_dir / "barcode" / "barcode.fa").as_posix(),
-                (root_dir / "barcode" / "barcode").as_posix(),
+                (root_dir / "bowtie2" / "index" / "barcode.fa").as_posix(),
+                (root_dir / "bowtie2" / "index" / "barcode").as_posix(),
             ]
         )
 
 
 def prepare_barcode_CTG_target_prefix(root_dir: os.PathLike):
-    root_dir = pathlib.Path(root_dir)
-    os.makedirs(root_dir / "bowtie2", exist_ok=True)
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "bowtie2" / "read", exist_ok=True)
     for parse_file in os.listdir(root_dir / "parse"):
         df = pd.read_csv(
             root_dir / "parse" / parse_file,
@@ -149,21 +149,20 @@ def prepare_barcode_CTG_target_prefix(root_dir: os.PathLike):
             usecols=["barcode_CTG_target_prefix"],
             keep_default_na=False,
         )
-        df["barcode_CTG_target_prefix"] = df.where(
+        df["barcode_CTG_target_prefix"] = df["barcode_CTG_target_prefix"].where(
             df["barcode_CTG_target_prefix"] != "", "N"
         )
         df.to_csv(
-            root_dir / "bowtie2" / f"{pathlib.Path(parse_file).stem}.csv",
+            root_dir / "bowtie2" / "read" / f"{pathlib.Path(parse_file).stem}.csv",
             header=False,
             index=False,
         )
 
 
 def map_barcode(root_dir: os.PathLike):
-    root_dir = pathlib.Path(root_dir)
-    for csv_file in os.listdir(root_dir / "bowtie2"):
-        if not csv_file.endswith(".csv"):
-            continue
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "bowtie2" / "align", exist_ok=True)
+    for csv_file in os.listdir(root_dir / "bowtie2" / "read"):
         subprocess.run(
             args=[
                 "bowtie2",
@@ -187,25 +186,25 @@ def map_barcode(root_dir: os.PathLike):
                 "C,1",
                 "-r",
                 "-x",
-                (root_dir / "barcode" / "barcode").as_posix(),
+                (root_dir / "bowtie2" / "index" / "barcode").as_posix(),
                 "-U",
-                (root_dir / "bowtie2" / csv_file).as_posix(),
+                (root_dir / "bowtie2" / "read" / csv_file).as_posix(),
                 "-S",
                 (
-                    root_dir / "bowtie2" / f"{pathlib.Path(csv_file).stem}.sam"
+                    root_dir
+                    / "bowtie2"
+                    / "align"
+                    / f"{pathlib.Path(csv_file).stem}.sam"
                 ).as_posix(),
             ],
         )
 
 
 def parse_barcode(root_dir: os.PathLike):
-    root_dir = pathlib.Path(root_dir)
-    os.makedirs(root_dir / "parse_bar", exist_ok=True)
-    for sam_file in os.listdir(root_dir / "bowtie2"):
-        if not sam_file.endswith(".sam"):
-            continue
-
-        sam = pysam.AlignmentFile(root_dir / "bowtie2" / sam_file)
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "parse" / "nobar", exist_ok=True)
+    for sam_file in os.listdir(root_dir / "bowtie2" / "align"):
+        sam = pysam.AlignmentFile(root_dir / "bowtie2" / "align" / sam_file)
         barcode_heads = []
         barcodes = []
         CTG_target_prefixs = []
@@ -227,7 +226,7 @@ def parse_barcode(root_dir: os.PathLike):
 
         df_parse = (
             pd.read_csv(
-                root_dir / "parse" / f"{pathlib.Path(sam_file).stem}.parse",
+                root_dir / "parse" / "nobar" / f"{pathlib.Path(sam_file).stem}.parse",
                 sep="\t",
                 header=0,
                 keep_default_na=False,
@@ -271,5 +270,5 @@ def parse_barcode(root_dir: os.PathLike):
         )
 
         df_parse.to_feather(
-            root_dir / "parse_bar" / f"{pathlib.Path(sam_file).stem}.parse"
+            root_dir / "parse" / "bar" / f"{pathlib.Path(sam_file).stem}.parse"
         )
