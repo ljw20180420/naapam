@@ -1,6 +1,9 @@
 import os
 import pathlib
 import re
+import subprocess
+import tempfile
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -206,7 +209,11 @@ def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
         df[["stem", "ref_id"]]
         .merge(
             right=df.query(
-                'ref_end1 + @tem + 1 == cut1 and ref_start2 + @tem == cut2 and random_insertion == ""'
+                """
+                    ref_end1 + @tem + 1 == cut1 and \
+                    ref_start2 + @tem == cut2 and \
+                    random_insertion == ""
+                """
             )[["stem", "ref_id", "count"]],
             how="left",
             on=["stem", "ref_id"],
@@ -251,3 +258,90 @@ def freq_temN_dummy_rel_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
     freq_temN_dummy_rel_blunt = count_temN(df, tem) / (count_temN_blunt(df, tem) + 1e-6)
 
     return freq_temN_dummy_rel_blunt
+
+
+###########################################
+# rearr
+###########################################
+
+
+def read_alg(alg_file: os.PathLike):
+    with subprocess.Popen(
+        args=["sed", "-e", r"N;N;s/\n/\t/g", os.fspath(alg_file)],
+        stdout=subprocess.PIPE,
+    ) as process:
+        df_alg = pd.read_csv(
+            process.stdout,
+            sep="\t",
+            names=[
+                "index",
+                "count",
+                "score",
+                "ref_id",
+                "updangle",
+                "ref_start1",
+                "query_start1",
+                "ref_end1",
+                "query_end1",
+                "random_insertion",
+                "ref_start2",
+                "query_start2",
+                "ref_end2",
+                "query_end2",
+                "downdangle",
+                "cut1",
+                "cut2",
+                "ref",
+                "query",
+            ],
+            keep_default_na=False,
+        )
+
+    return df_alg
+
+
+def call_rearr(
+    ref1s: Iterable[str],
+    ref2s: Iterable[str],
+    cuts: Iterable[int],
+    exts: Iterable[int],
+    queries: Iterable[str],
+    counts: Iterable[int],
+) -> pd.DataFrame:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = pathlib.Path(os.fspath(tmpdir))
+        with open(tmpdir / "ref", "w") as fd_ref, open(
+            tmpdir / "query", "w"
+        ) as fd_query, open(tmpdir / "correct", "w") as fd_correct:
+            for ref_id, (ref1, ref2, cut, ext, query, count) in enumerate(
+                zip(ref1s, ref2s, cuts, exts, queries, counts)
+            ):
+                fd_ref.write(f"{0}\t{ref1}\t{cut}\t{ext}\t{ref2}\t{len(ref2)}\n")
+                fd_query.write(f"{query}\t{count}\t{ref_id}\n")
+                fd_correct.write(f"up\n")
+
+        subprocess.run(
+            args=" ".join(
+                [
+                    "rearrangement",
+                    "<",
+                    (tmpdir / "query").as_posix(),
+                    "3<",
+                    (tmpdir / "ref").as_posix(),
+                    "|",
+                    "gawk",
+                    "-f",
+                    "correct_micro_homology.awk",
+                    "--",
+                    (tmpdir / "ref").as_posix(),
+                    (tmpdir / "correct").as_posix(),
+                    ">",
+                    (tmpdir / "alg").as_posix(),
+                ]
+            ),
+            shell=True,
+        )
+
+        df_alg = read_alg(tmpdir / "alg")
+
+    return df_alg
