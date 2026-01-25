@@ -574,7 +574,6 @@ def filter_low_quality_barcode(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "hq_bar", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        breakpoint()
         save_dir = pathlib.Path(f"figures/align/filter_low_quality_barcode/{chip}")
         os.makedirs(save_dir, exist_ok=True)
         df_control = pd.read_feather(
@@ -590,7 +589,7 @@ def filter_low_quality_barcode(
                 (count_tot >= @min_count_tot or count_wt / count_tot >= @min_freq_wt) and \
                 second / (first + 1e-6) <= @max_second_rel_first
             """
-        )
+        ).reset_index(drop=True)
 
         df_stat.loc["filter", "bar_num"] = df_control["barcode_id"].unique().shape[0]
         df_stat["bar_num"].plot.bar().get_figure().savefig(save_dir / "bar_num.pdf")
@@ -599,73 +598,41 @@ def filter_low_quality_barcode(
 
 
 def filter_low_quality_mutant(
-    root_dir: os.PathLike, max_freq_second: float, min_freq_wt: float, min_count: int
+    root_dir: os.PathLike,
+    min_percentage: float,
+    max_rank: int,
+    max_up_del_size: int,
+    max_down_del_size: int,
+    max_rand_ins_size: int,
+    min_count: int,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "ref" / "barcode", exist_ok=True)
-    count_dir = pathlib.Path("figures/align/stat/group/control")
+    os.makedirs(root_dir / "control" / "hq_mut", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/filter/group/control/{chip}")
+        save_dir = pathlib.Path(f"figures/align/filter_low_quality_mutant/{chip}")
         os.makedirs(save_dir, exist_ok=True)
-        df_count = pd.read_csv(count_dir / chip / "count.csv", header=0)
+        df_control = pd.read_feather(
+            root_dir / "control" / "hq_bar" / f"{chip}.feather"
+        )
 
-        df_stat = pd.DataFrame(columns=["barcode_num"], index=["full", "filter"])
-        df_stat.loc["full", "barcode_num"] = df_count.shape[0]
+        df_stat = pd.DataFrame(columns=["mut_num"], index=["full", "filter"])
+        df_stat.loc["full", "mut_num"] = df_control.shape[0]
 
-        df_count = df_count.query(
+        df_control = df_control.query(
             """
-                second / (first + 1e-6) <= @max_freq_second and \
-                (count_wt / count >= @min_freq_wt or count >= @min_count)
+                percentage >= @min_percentage and \
+                rank <= @max_rank and \
+                up_del_size <= @max_up_del_size and \
+                down_del_size <= @max_down_del_size and \
+                rand_ins_size <= @max_rand_ins_size and \
+                count >= @min_count
             """
         ).reset_index(drop=True)
 
-        df_stat.loc["filter", "barcode_num"] = df_count.shape[0]
-        df_stat.to_csv(save_dir / "barcode_num.csv")
-        df_stat["barcode_num"].plot.bar().get_figure().savefig(
-            save_dir / "barcode_num.pdf"
-        )
+        df_stat.loc["filter", "mut_num"] = df_control.shape[0]
+        df_stat["mut_num"].plot.bar().get_figure().savefig(save_dir / "mut_num.pdf")
 
-        df_count["dominant"] = df_count[
-            ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
-        ].idxmax(axis=1)
-
-        df_dominant = df_count["dominant"].value_counts().reset_index()
-        df_dominant.to_csv(save_dir / "dominant.csv", index=False)
-        df_dominant.set_index("dominant").plot.bar().get_figure().savefig(
-            save_dir / "dominant.pdf"
-        )
-
-        if chip in ["a1", "a2", "a3"]:
-            df_plasmid = pd.read_csv(
-                "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
-            )
-        else:
-            df_plasmid = pd.read_csv("plasmids/final_hgsgrna_libb_all_0811-NGG.csv")
-
-        df_plasmid = df_plasmid.assign(
-            ref=lambda df: (
-                "AAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGCTTTTTTG"
-                + df["Target sequence"]
-                + "CAG"
-                + df["Barcode2"]
-                + df["Primer binding sites 20nt"]
-            ).map(utils.rev_comp),
-        ).reset_index(names="barcode_id")
-
-        df_ref = df_count[["barcode_id", "dominant", "first"]].merge(
-            right=df_plasmid[["barcode_id", "ref"]],
-            how="left",
-            on=["barcode_id"],
-            validate="one_to_one",
-        )
-        cut = 64
-        for tem in range(1, 5):
-            df_ref["ref"] = df_ref["ref"].where(
-                df_ref["dominant"] != f"count_tem{tem}",
-                df_ref["ref"].str.slice(stop=cut - tem - 1)
-                + df_ref["ref"].str.slice(start=cut - tem),
-            )
-        df_ref.to_csv(root_dir / "ref" / "barcode" / f"{chip}.csv", index=False)
+        df_control.to_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")
 
 
 def generate_reference(
