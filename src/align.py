@@ -535,6 +535,34 @@ def stat_func_control(root_dir: os.PathLike):
         )
         plt.close("all")
 
+        # type_max
+        df_stat = (
+            df_control.assign(
+                type_max=lambda df: df[
+                    ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
+                ].idxmax(axis=1)
+            )
+            .groupby("barcode_id")
+            .agg(
+                count_tot=pd.NamedAgg(column="count", aggfunc="sum"),
+                type_max=pd.NamedAgg(column="type_max", aggfunc="first"),
+            )
+            .reset_index()
+            .groupby("type_max")
+            .agg(
+                num_type_max=pd.NamedAgg(column="type_max", aggfunc="size"),
+                count_type_max=pd.NamedAgg(column="count_tot", aggfunc="sum"),
+            )
+        )
+        df_stat["num_type_max"].plot.bar(logy=True).get_figure().savefig(
+            save_dir / "num_type_max.pdf"
+        )
+        plt.close("all")
+        df_stat["count_type_max"].plot.bar(logy=True).get_figure().savefig(
+            save_dir / "count_type_max.pdf"
+        )
+        plt.close("all")
+
 
 def filter_low_quality_barcode(
     root_dir: os.PathLike,
