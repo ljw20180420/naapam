@@ -622,15 +622,22 @@ def filter_low_quality_mutant(
             """
                 percentage >= @min_percentage and \
                 rank <= @max_rank and \
-                up_del_size <= @max_up_del_size and \
-                down_del_size <= @max_down_del_size and \
-                rand_ins_size <= @max_rand_ins_size and \
+                cut1 - ref_end1 <= @max_up_del_size and \
+                ref_start2 - cut2 <= @max_down_del_size and \
+                random_insertion.str.len() <= @max_rand_ins_size and \
                 count >= @min_count
             """
         ).reset_index(drop=True)
 
         df_stat.loc["filter", "mut_num"] = df_control.shape[0]
         df_stat["mut_num"].plot.bar().get_figure().savefig(save_dir / "mut_num.pdf")
+        plt.close("all")
+
+        df_control.groupby("barcode_id").size().rename("mutant_type_num").clip(
+            upper=100
+        ).plot.hist(bins=np.linspace(0, 101, 102)).get_figure().savefig(
+            save_dir / "mutant_type_num.pdf"
+        )
 
         df_control.to_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")
 
