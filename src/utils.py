@@ -327,3 +327,67 @@ def call_rearr(
         df_alg = read_alg(tmpdir / "alg")
 
     return df_alg
+
+
+def infer_cut(row: pd.Series, ext: int) -> pd.Series:
+    ref_line = row["ref"]
+    query_line = row["query"]
+    ref_end1 = row["ref_end1"]
+    ref_start2 = row["ref_start2"]
+    cut = row["cut_query"]
+    first_lower_end = re.search(r"[acgtn]", ref_line).span()[1]
+    before_rand_ins = (
+        re.search(r"[acgtn]", ref_line[first_lower_end:]).span()[1] + first_lower_end
+    )
+    after_rand_ins = (
+        re.search(r"[acgtn]", ref_line[before_rand_ins:]).span()[0] + before_rand_ins
+    )
+    ref_line_array = np.array(list(ref_line))
+    temp = (ref_line_array[:before_rand_ins] != "-").cumsum()
+    ref_end1_alg = np.where(temp == ref_end1)[0].item() + 1
+    ref1_len = temp[-1]
+    ref_start2_alg = (
+        np.where(
+            (ref_line_array[after_rand_ins:] != "-").cumsum() == ref_start2 - ref1_len
+        )[0].item()
+        + 1
+        + after_rand_ins
+    )
+
+    query_line_array = np.array(list(query_line))
+    cut_alg = np.where((query_line_array != "-").cumsum() == cut)[0].item() + 1
+    if cut_alg <= ref_end1_alg:
+        ref1_correct = ref_line[:cut_alg]
+    elif cut_alg <= after_rand_ins:
+        ref1_correct = ref_line[:ref_end1_alg] + query_line[before_rand_ins:cut_alg]
+    else:
+        ref1_correct = (
+            ref_line[:ref_end1_alg]
+            + query_line[before_rand_ins:after_rand_ins]
+            + ref_line[ref_start2_alg:cut_alg]
+        )
+
+    cut_correct = len(ref1_correct.replace("-", ""))
+    ref_correct = (
+        (
+            ref_line[:ref_end1_alg]
+            + query_line[before_rand_ins:after_rand_ins]
+            + ref_line[ref_start2_alg:]
+        )
+        .replace("-", "")
+        .upper()
+    )
+    assert cut_correct >= ext, "ref1 too short"
+    assert len(ref_correct) - cut_correct >= ext, "ref2 too short"
+    ref1_correct = ref_correct[: cut_correct + ext]
+    ref2_correct = ref_correct[cut_correct - ext :]
+
+    breakpoint()
+
+    return pd.Series(
+        {
+            "ref1": ref1_correct,
+            "ref2": ref2_correct,
+            "cut": cut_correct,
+        }
+    )

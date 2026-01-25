@@ -365,13 +365,13 @@ def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
             .groupby(
                 [
                     "barcode_id",
-                    "ref1",
-                    "ref2",
-                    "cut1",
-                    "cut2",
                     "ref_end1",
                     "ref_start2",
                     "random_insertion",
+                    "cut1",
+                    "cut2",
+                    "ref1",
+                    "ref2",
                 ]
             )["count"]
             .sum()
