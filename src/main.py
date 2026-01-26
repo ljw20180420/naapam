@@ -186,20 +186,21 @@ def filter_mutant(
     max_freq_mutant: float,
 ):
     """
-    Do not filter mutant because missing mutant are treated as count 0. Set mutant count to nan to exclude it from all statistics involving count.
+    Do not filter mutant because missing mutant are treated as count 0. Use a column legal to mark mutant passing the filter.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "main" / "treat" / "filter" / "mutant", exist_ok=True)
 
     df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
 
-    mask = (
-        (utils.up_del_size(df_treat) <= max_up_del_size)
-        & (utils.down_del_size(df_treat) <= max_down_del_size)
-        & (utils.rand_ins_size(df_treat) <= max_rand_ins_size)
-        & ((utils.freq_mutant(df_treat) <= max_freq_mutant) | utils.is_wt(df_treat))
+    df_treat = df_treat.assign(
+        legal=(
+            (utils.up_del_size(df_treat) <= max_up_del_size)
+            & (utils.down_del_size(df_treat) <= max_down_del_size)
+            & (utils.rand_ins_size(df_treat) <= max_rand_ins_size)
+            & ((utils.freq_mutant(df_treat) <= max_freq_mutant) | utils.is_wt(df_treat))
+        )
     )
-    df_treat.loc[~mask, "count"] = float("nan")
 
     df_treat.to_feather(
         root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"

@@ -99,67 +99,41 @@ def duplicate_control(root_dir: os.PathLike):
     )
 
 
-def merge_mutant(df_treat: pd.DataFrame, df_control: pd.DataFrame) -> pd.DataFrame:
-    return df_treat.merge(
-        df_control[
-            [
-                "chip",
-                "rep",
-                "barcode",
-                "ref_end1",
-                "ref_start2",
-                "random_insertion",
-                "count",
-                "mutant_legal",
-            ]
-        ].rename(
-            columns={
-                "count": "count_ctl",
-                "mutant_legal": "mutant_legal_ctl",
-            }
-        ),
+def merge(root_dir: os.PathLike):
+    """
+    count_wt_ctl and count_tot_ctl must be calculated before left merge because information about control will loss after left merge.
+    """
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "treat" / "merge", exist_ok=True)
+    df_treat = pd.read_feather(root_dir / "main" / "treat" / "dup" / "treat.feather")
+    df_control = (
+        pd.read_feather(root_dir / "main" / "control" / "dup" / "treat.feather")
+        .assign(
+            count_wt_ctl=lambda df: utils.count_wt(df),
+            count_tot_ctl=lambda df: df.groupby(["stem", "ref_id"])["count"].transform(
+                "sum"
+            ),
+        )
+        .rename(columns={"count": "count_ctl"})
+    )
+    on = [
+        "chip",
+        "time",
+        "wt",
+        "ref_id",
+        "ref_end1",
+        "ref_start2",
+        "random_insertion",
+    ]
+    df_treat = df_treat.merge(
+        right=df_control[on + ["count_ctl", "count_wt_ctl", "count_tot_ctl"]],
         how="left",
-        on=[
-            "chip",
-            "rep",
-            "barcode",
-            "ref_end1",
-            "ref_start2",
-            "random_insertion",
-        ],
+        on=on,
         validate="many_to_one",
     ).assign(
-        count_ctl=lambda df: df["count_ctl"].fillna(0).astype(int),
-        mutant_legal_ctl=lambda df: df["mutant_legal_ctl"].fillna(1).astype(bool),
+        count_ctl=lambda df: df["count_ctl"].fillna(0),
+        count_wt_ctl=lambda df: df["count_wt_ctl"].fillna(0),
+        count_tot_ctl=lambda df: df["count_tot_ctl"].fillna(0),
     )
 
-
-def merge_barcode(df_treat: pd.DataFrame, df_control: pd.DataFrame) -> pd.DataFrame:
-    return df_treat.merge(
-        df_control[
-            [
-                "chip",
-                "rep",
-                "barcode",
-                "count_tot",
-                "barcode_legal",
-            ]
-        ]
-        .drop_duplicates()
-        .rename(
-            columns={
-                "count_tot": "count_tot_ctl",
-                "barcode_legal": "barcode_legal_ctl",
-            }
-        ),
-        how="left",
-        on=[
-            "chip",
-            "rep",
-            "barcode",
-        ],
-        validate="many_to_one",
-    ).assign(
-        count_tot_ctl=lambda df: df["count_tot_ctl"].fillna(0).astype(int),
-        barcode_legal_ctl=lambda df: df["barcode_legal_ctl"].fillna(1).astype(bool),
-    )
+    df_treat.to_feather(root_dir / "main" / "treat" / "merge" / "treat.feather")
