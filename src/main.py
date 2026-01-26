@@ -146,7 +146,7 @@ def collect_data(
     ).to_feather(root_dir / "main" / "control" / "full" / "treat.feather")
 
 
-def stat_mutant(root_dir: os.PathLike):
+def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
     save_dir = pathlib.Path("figures/main/stat_mutant")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -167,7 +167,12 @@ def stat_mutant(root_dir: os.PathLike):
     ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
     plt.close("all")
 
-    utils.freq_mutant(df_treat).plot.hist(bins=100).get_figure().savefig(
+    df_treat.assign(
+        count_tot=lambda df: df.groupby(["stem", "ref_id"])["count"].transform("sum"),
+        freq_mutant=lambda df: utils.freq_mutant(df),
+    ).query("count_tot <= @min_count_tot")["freq_mutant"].plot.hist(
+        bins=100
+    ).get_figure().savefig(
         save_dir / "freq_mutant.pdf"
     )
     plt.close("all")
@@ -202,23 +207,21 @@ def filter_mutant(
 
 
 def stat_ref(root_dir: os.PathLike, min_count_tot: int):
-    save_dir = pathlib.Path("figures/hists/ref")
+    save_dir = pathlib.Path("figures/main/stat_ref")
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
         root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
     )
 
-    df_treat.groupby(["stem", "ref_id"])["count"].sum().plot.hist(
-        bins=100
+    df_treat.groupby(["stem", "ref_id"])["count"].sum().clip(upper=300).plot.hist(
+        bins=np.linspace(0, 301, 302)
     ).get_figure().savefig(save_dir / "count_tot.pdf")
     plt.close("all")
 
-    df_treat.assign(freq_nowt=utils.freq_nowt(df_treat))[
-        ["stem", "ref_id", "freq_nowt"]
-    ].drop_duplicates()["freq_nowt"].plot.hist(bins=100).get_figure().savefig(
-        save_dir / "freq_nowt.pdf"
-    )
+    df_treat.assign(freq_nowt=utils.freq_nowt(df_treat)).groupby(["stem", "ref_id"])[
+        "freq_nowt"
+    ].first().plot.hist(bins=100).get_figure().savefig(save_dir / "freq_nowt.pdf")
     plt.close("all")
 
     for tem in range(1, 5):
