@@ -73,7 +73,15 @@ def agg(df: pd.DataFrame) -> pd.DataFrame:
             ),
             R2_sgRNA_score=pd.NamedAgg(column="R2_sgRNA_score", aggfunc="first"),
             barcode_score=pd.NamedAgg(column="barcode_score", aggfunc="first"),
+            R1_sgRNA_bowtie2_score=pd.NamedAgg(
+                column="R1_sgRNA_bowtie2_score", aggfunc="first"
+            ),
+            R2_sgRNA_bowtie2_score=pd.NamedAgg(
+                column="R2_sgRNA_bowtie2_score", aggfunc="first"
+            ),
             barcode_id=pd.NamedAgg(column="barcode_id", aggfunc="first"),
+            R1_sgRNA_id=pd.NamedAgg(column="R1_sgRNA_id", aggfunc="first"),
+            R2_sgRNA_id=pd.NamedAgg(column="R2_sgRNA_id", aggfunc="first"),
             count=pd.NamedAgg(column="count", aggfunc="sum"),
         )
         .sort_values("count", ascending=False)
@@ -109,16 +117,20 @@ def stat(df: pd.DataFrame, save_dir: os.PathLike):
         df_stat.to_csv(save_dir / f"{column}_length.csv", index=False)
 
     for column in [
+        "G",
+        "C",
+        "pam_tail",
         "R1_primer_score",
         "R1_scaffold_prefix_score",
         "R2_primer_score",
         "R2_sgRNA_score",
         "R2_scaffold_prefix_score",
         "barcode_score",
-        "G",
-        "C",
-        "pam_tail",
+        "R1_sgRNA_bowtie2_score",
+        "R2_sgRNA_bowtie2_score",
         "barcode_id",
+        "R1_sgRNA_id",
+        "R2_sgRNA_id",
     ]:
         if column == "pam_tail":
             df = df.assign(pam_tail=lambda df: df["pam"].str.slice(start=-2))
@@ -154,11 +166,13 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
             df_stat.columns[0] if df_stat.columns[0] != "count" else df_stat.columns[1]
         )
         if name in [
-            "barcode_id",
-            "count_full",
-            "count_small",
             "R1_primer_length",
             "R2_primer_length",
+            "barcode_id",
+            "R1_sgRNA_id",
+            "R2_sgRNA_id",
+            "count_full",
+            "count_small",
         ]:
             logy = True
         else:
@@ -168,38 +182,46 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
             df_stat.groupby(name)["count"].sum().plot.bar(
                 logy=logy
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
-        elif name == "barcode_id":
+        elif name in ["barcode_id", "R1_sgRNA_id", "R2_sgRNA_id"]:
             df_stat.groupby(name)["count"].sum().reset_index().plot.scatter(
                 x=name, y="count", logy=logy
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
-        else:
-            bins = 300 if name.endswith("score") else 150
+        elif name.endswith("_length"):
+            bins = 150
+            df_stat[name].clip(upper=bins).plot.hist(
+                bins=np.linspace(0, bins + 1, bins + 2),
+                weights=df_stat["count"],
+                logy=logy,
+            ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
+        elif name.endswith("_score"):
+            bins = 300
             df_stat[name].plot.hist(
                 bins=bins, weights=df_stat["count"], logy=logy
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
-
+        else:
+            raise ValueError("Unknown column")
         plt.close("all")
 
 
 def collect_control(
     root_dir: os.PathLike,
 ):
-    """
-    R1_barcode,R1_primer,G,R1_sgRNA,R1_scaffold_prefix,R1_tail,R1_primer_score,R1_scaffold_prefix_score,R2_barcode,R2_primer,barcode_head,barcode,CTG_target_prefix,R2_sgRNA,pam,target_suffix,C,R2_scaffold_prefix,R2_tail,R2_primer_score,R2_scaffold_prefix_score,R2_sgRNA_score,barcode_score,barcode_id,count
-    """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "full", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         df_controls = []
-        for parse_file in os.listdir(root_dir / "parse" / "bar"):
+        for parse_file in os.listdir(root_dir / "parse" / "sgRNA"):
             if (
                 utils.infer_cas(parse_file) != "control"
                 or utils.infer_chip(parse_file) != chip
             ):
                 continue
             df_controls.append(
-                pd.read_feather(
-                    root_dir / "parse" / "bar" / parse_file,
+                pd.read_csv(
+                    root_dir / "parse" / "sgRNA" / parse_file,
+                    sep="\t",
+                    header=0,
+                    keep_default_na=False,
                 ).drop(columns=["R1_barcode", "R2_barcode"])
             )
 
@@ -211,11 +233,14 @@ def collect_control(
 def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        save_dir = pathlib.Path(f"figures/align/stat_control/{chip}")
+        os.makedirs(save_dir, exist_ok=True)
+
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
-        stat(df=df_control, save_dir=f"figures/align/stat_control/{chip}")
+        stat(df=df_control, save_dir=save_dir)
         draw(
-            save_dirs=[f"figures/align/stat_control/{chip}"],
-            summary_dir=f"figures/align/stat_control/{chip}",
+            save_dirs=[save_dir],
+            summary_dir=save_dir,
         )
 
 
@@ -240,6 +265,8 @@ def filter_nofunc_control(
     min_R2_sgRNA_score: int,
     min_R2_scaffold_prefix_score: int,
     min_barcode_score: int,
+    min_R1_sgRNA_bowtie2_score: int,
+    min_R2_sgRNA_bowtie2_score: int,
     G: list[str],
     C: list[str],
     a_pam_tail: list[str],
@@ -279,10 +306,13 @@ def filter_nofunc_control(
                 R2_sgRNA_score >= @min_R2_sgRNA_score and \
                 R2_scaffold_prefix_score >= @min_R2_scaffold_prefix_score and \
                 barcode_score >= @min_barcode_score and \
+                R1_sgRNA_bowtie2_score >= @min_R1_sgRNA_bowtie2_score and \
+                R2_sgRNA_bowtie2_score >= @min_R2_sgRNA_bowtie2_score and \
                 G.isin(@G) and \
                 C.isin(@C) and \
                 pam.str.slice(start=-2).isin(@pam_tail) and \
-                count >= @min_count
+                count >= @min_count and \
+                barcode_id == R1_sgRNA_id == R2_sgRNA_id
             """,
             inplace=True,
         )
@@ -427,15 +457,9 @@ def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
                 .astype({f"count_tem{tem}": int})
             )
 
-        # count_tot, count_re (remain), first, second
+        # count_tot, first, second
         df_control = df_control.assign(
             count_tot=lambda df: df.groupby("barcode_id")["count"].transform("sum"),
-            count_re=lambda df: df["count_tot"]
-            - df["count_wt"]
-            - df["count_tem1"]
-            - df["count_tem2"]
-            - df["count_tem3"]
-            - df["count_tem4"],
             first=lambda df: df[
                 ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
             ].max(axis=1),
@@ -699,7 +723,7 @@ def generate_reference(
                 ref2len=lambda df: df["ref2"].str.len(),
             )
         )
-        breakpoint()
+
         df_ref[["zero", "ref1", "cut", "ext", "ref2", "ref2len"]].to_csv(
             root_dir / "ref" / f"{chip}.ref",
             sep="\t",
@@ -709,14 +733,14 @@ def generate_reference(
 
 
 def collect_treat(root_dir: os.PathLike):
-    """
-    R1_barcode,R1_primer,G,R1_sgRNA,R1_scaffold_prefix,R1_tail,R1_primer_score,R1_scaffold_prefix_score,R2_barcode,R2_primer,barcode_head,barcode,CTG_target_prefix,R2_sgRNA,pam,target_suffix,C,R2_scaffold_prefix,R2_tail,R2_primer_score,R2_scaffold_prefix_score,R2_sgRNA_score,barcode_score,barcode_id,count
-    """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "treat" / "full", exist_ok=True)
-    for parse_file in os.listdir(root_dir / "parse_bar"):
-        df_treat = pd.read_feather(
-            root_dir / "parse_bar" / parse_file,
+    for parse_file in os.listdir(root_dir / "parse" / "sgRNA"):
+        df_treat = pd.read_csv(
+            root_dir / "parse" / "sgRNA" / parse_file,
+            sep="\t",
+            header=0,
+            keep_default_na=False,
         ).drop(columns=["R1_barcode", "R2_barcode"])
 
         df_treat = agg(df_treat)

@@ -35,6 +35,8 @@ min_R2_primer_score: 30
 min_R2_sgRNA_score: 25
 min_R2_scaffold_prefix_score: 50
 min_barcode_score: 15
+min_R1_sgRNA_bowtie2_score: 15
+min_R2_sgRNA_bowtie2_score: 15
 G:
   - "G"
 C:
