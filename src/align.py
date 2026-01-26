@@ -81,33 +81,6 @@ def agg(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def collect_control(
-    root_dir: os.PathLike,
-):
-    """
-    R1_barcode,R1_primer,G,R1_sgRNA,R1_scaffold_prefix,R1_tail,R1_primer_score,R1_scaffold_prefix_score,R2_barcode,R2_primer,barcode_head,barcode,CTG_target_prefix,R2_sgRNA,pam,target_suffix,C,R2_scaffold_prefix,R2_tail,R2_primer_score,R2_scaffold_prefix_score,R2_sgRNA_score,barcode_score,barcode_id,count
-    """
-    root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "control" / "full", exist_ok=True)
-    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        df_controls = []
-        for parse_file in os.listdir(root_dir / "parse" / "bar"):
-            if (
-                utils.infer_cas(parse_file) != "control"
-                or utils.infer_chip(parse_file) != chip
-            ):
-                continue
-            df_controls.append(
-                pd.read_feather(
-                    root_dir / "parse" / "bar" / parse_file,
-                ).drop(columns=["R1_barcode", "R2_barcode"])
-            )
-
-        df_controls = pd.concat(df_controls)
-        df_controls = agg(df_controls)
-        df_controls.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
-
-
 def stat(df: pd.DataFrame, save_dir: os.PathLike):
     save_dir = pathlib.Path(os.fspath(save_dir))
     os.makedirs(save_dir, exist_ok=True)
@@ -206,6 +179,33 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
 
         plt.close("all")
+
+
+def collect_control(
+    root_dir: os.PathLike,
+):
+    """
+    R1_barcode,R1_primer,G,R1_sgRNA,R1_scaffold_prefix,R1_tail,R1_primer_score,R1_scaffold_prefix_score,R2_barcode,R2_primer,barcode_head,barcode,CTG_target_prefix,R2_sgRNA,pam,target_suffix,C,R2_scaffold_prefix,R2_tail,R2_primer_score,R2_scaffold_prefix_score,R2_sgRNA_score,barcode_score,barcode_id,count
+    """
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "control" / "full", exist_ok=True)
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        df_controls = []
+        for parse_file in os.listdir(root_dir / "parse" / "bar"):
+            if (
+                utils.infer_cas(parse_file) != "control"
+                or utils.infer_chip(parse_file) != chip
+            ):
+                continue
+            df_controls.append(
+                pd.read_feather(
+                    root_dir / "parse" / "bar" / parse_file,
+                ).drop(columns=["R1_barcode", "R2_barcode"])
+            )
+
+        df_controls = pd.concat(df_controls)
+        df_controls = agg(df_controls)
+        df_controls.to_feather(root_dir / "control" / "full" / f"{chip}.feather")
 
 
 def stat_control(root_dir: os.PathLike):
@@ -606,6 +606,7 @@ def filter_low_quality_mutant(
     max_rand_ins_size: int,
     min_count: int,
 ):
+    assert max_down_del_size <= 3, "pam is resected"
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "hq_mut", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
@@ -644,25 +645,63 @@ def filter_low_quality_mutant(
 
 def generate_reference(
     root_dir: os.PathLike,
-    ext: int = 10,
+    ext: int,
 ):
-    root_dir = pathlib.Path(root_dir)
-    os.makedirs(root_dir / "ref" / "format", exist_ok=True)
-    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        df_ref = pd.read_csv(root_dir / "ref" / "barcode" / f"{chip}.csv", header=0)
-        df_ref = df_ref.assign(
-            cut=lambda df: df["ref"].str.len() - 79,
-            ref1=lambda df: df["ref"]
-            .str.slice(stop=64 + ext)
-            .where(df["ref"].str.len() == 143, df["ref"].str.slice(stop=63 + ext)),
-            ref2=lambda df: df["ref"].str.slice(start=-79 - ext),
-            zero=0,
-            ext=ext,
-            ref2len=lambda df: df["ref2"].str.len(),
+    def generate_reference_row(row: pd.Series, ext: int) -> pd.Series:
+        ref = (
+            row["ref1"][: row["ref_end1"]]
+            + row["random_insertion"]
+            + row["ref2"][row["ref_start2"] - len(row["ref1"]) :]
+        )
+        ref1 = row["ref1"][: row["ref_end1"]] + row["random_insertion"]
+        if row["ref_start2"] > row["cut2"]:
+            assert len(ref1) >= row["ref_start2"] - row["cut2"], "upstream too short"
+            ref1 = ref1[: (row["cut2"] - row["ref_start2"])]
+        elif row["ref_start2"] < row["cut2"]:
+            ref1 = (
+                ref1
+                + row["ref2"][
+                    row["ref_start2"]
+                    - len(row["ref1"]) : row["cut2"]
+                    - len(row["ref1"])
+                ]
+            )
+        cut = len(ref1)
+        ref1 = ref[: cut + ext]
+        ref2 = ref[cut - ext :]
+        return pd.Series(
+            {
+                "ref1": ref1,
+                "ref2": ref2,
+                "cut": cut,
+            }
         )
 
+    root_dir = pathlib.Path(root_dir)
+    os.makedirs(root_dir / "ref", exist_ok=True)
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        df_control = pd.read_feather(
+            root_dir / "control" / "hq_mut" / f"{chip}.feather"
+        )
+
+        assert (
+            df_control["ref_start2"] <= df_control["cut2"] + 3
+        ).all(), "pam is mutated"
+
+        df_ref = (
+            df_control[
+                ["ref_end1", "ref_start2", "random_insertion", "cut2", "ref1", "ref2"]
+            ]
+            .apply(lambda row, ext=ext: generate_reference_row(row, ext), axis=1)
+            .assign(
+                zero=0,
+                ext=ext,
+                ref2len=lambda df: df["ref2"].str.len(),
+            )
+        )
+        breakpoint()
         df_ref[["zero", "ref1", "cut", "ext", "ref2", "ref2len"]].to_csv(
-            root_dir / "ref" / "format" / f"{chip}.ref",
+            root_dir / "ref" / f"{chip}.ref",
             sep="\t",
             header=False,
             index=False,
