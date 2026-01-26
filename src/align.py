@@ -772,7 +772,7 @@ def filter_treat(
     os.makedirs(root_dir / "treat" / "filter", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "full"):
         save_dir = pathlib.Path(
-            f"figures/align/filter/treat/{pathlib.Path(treat_file).stem}"
+            f"figures/align/filter_treat/{pathlib.Path(treat_file).stem}"
         )
         os.makedirs(save_dir, exist_ok=True)
 
@@ -891,7 +891,7 @@ def demultiplex(
 
 
 def draw_demultiplex():
-    save_dir = pathlib.Path("figures/align/demultiplex")
+    save_dir = pathlib.Path("figures/align/draw_demultiplex")
 
     df_founds = []
     df_query_count_per_refs = []
