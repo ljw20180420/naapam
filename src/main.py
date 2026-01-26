@@ -3,19 +3,18 @@ import pathlib
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy import special
 
 from . import utils
 
 
-def correct_index(
-    root_dir: os.PathLike,
-):
+def correct_alg(root_dir: os.PathLike, temperature: float):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "align_correct", exist_ok=True)
-    for alg_file in os.listdir(root_dir / "align"):
-        df_alg = utils.read_alg(root_dir / "align" / alg_file)
+    os.makedirs(root_dir / "align" / "correct", exist_ok=True)
+    for alg_file in os.listdir(root_dir / "align" / "raw"):
+        df_alg = utils.read_alg(root_dir / "align" / "raw" / alg_file)
         df_query = pd.read_csv(
-            root_dir / "query" / f"{pathlib.Path(alg_file).stem}.query",
+            root_dir / "query" / "found" / f"{pathlib.Path(alg_file).stem}.query",
             sep="\t",
             names=["query", "count", "ref_id"],
             keep_default_na=False,
@@ -23,35 +22,68 @@ def correct_index(
         df_alg["index"] = df_query.groupby("query").transform("ngroup")
 
         chip = utils.infer_chip(alg_file)
-        df_ref = (
-            pd.read_csv(root_dir / "ref" / "barcode" / f"{chip}.csv", header=0)
-            .reset_index(names="ref_id")
-            .astype({"first": int})
-        )
+        df_ref = pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
+            ["count"]
+        ].reset_index(names="ref_id")
         df_alg = df_alg.merge(
-            right=df_ref[["ref_id", "first"]],
+            right=df_ref[["ref_id", "count"]].rename(columns={"count": "count_ref"}),
             how="left",
             on=["ref_id"],
             validate="many_to_one",
+        ).assign(
+            count_distri=lambda df: df["count"]
+            * df.groupby("index")["score"].transform(
+                lambda score, temperature=temperature: pd.Series(
+                    special.softmax(score / temperature), name=score.name
+                )
+            )
         )
 
-        with open(root_dir / "align_correct" / alg_file, "w") as fd:
+        with open(root_dir / "align" / "correct" / alg_file, "w") as fd:
             for _, row in df_alg.iterrows():
-                fd.write("\t".join(row.drop(["ref", "query"]).astype(str)) + "\n")
+                fd.write(
+                    "\t".join(
+                        row[
+                            [
+                                "index",
+                                "count",
+                                "score",
+                                "ref_id",
+                                "updangle",
+                                "ref_start1",
+                                "query_start1",
+                                "ref_end1",
+                                "query_end1",
+                                "random_insertion",
+                                "ref_start2",
+                                "query_start2",
+                                "ref_end2",
+                                "query_end2",
+                                "downdangle",
+                                "cut1",
+                                "cut2",
+                                "count_ref",
+                                "count_distri",
+                            ]
+                        ].astype(str)
+                    )
+                    + "\n"
+                )
                 fd.write(row["ref"] + "\n")
                 fd.write(row["query"] + "\n")
 
 
 def stat_read(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/hists/read")
+    save_dir = pathlib.Path("figures/main/stat_read")
     os.makedirs(save_dir, exist_ok=True)
     df_algs = []
-    for alg_file in os.listdir(root_dir / "align_correct"):
+    for alg_file in os.listdir(root_dir / "align" / "correct"):
         df_algs.append(
-            utils.read_alg(root_dir / "align_correct" / alg_file)
-            .groupby("score")["count"]
+            utils.read_alg(root_dir / "align" / "correct" / alg_file)
+            .groupby("score")["count_distri"]
             .sum()
+            .rename("count")
             .reset_index()
         )
 
