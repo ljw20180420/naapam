@@ -1,6 +1,5 @@
 import os
 import pathlib
-import subprocess
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -8,50 +7,15 @@ import pandas as pd
 from . import utils
 
 
-def read_alg(alg_file: os.PathLike):
-    with subprocess.Popen(
-        args=["sed", "-e", r"N;N;s/\n/\t/g", os.fspath(alg_file)],
-        stdout=subprocess.PIPE,
-    ) as process:
-        df_alg = pd.read_csv(
-            process.stdout,
-            sep="\t",
-            names=[
-                "index",
-                "count",
-                "score",
-                "ref_id",
-                "updangle",
-                "ref_start1",
-                "query_start1",
-                "ref_end1",
-                "query_end1",
-                "random_insertion",
-                "ref_start2",
-                "query_start2",
-                "ref_end2",
-                "query_end2",
-                "downdangle",
-                "cut1",
-                "cut2",
-                "ref",
-                "query",
-            ],
-            keep_default_na=False,
-        )
-
-    return df_alg
-
-
 def correct_index(
     root_dir: os.PathLike,
 ):
-    root_dir = pathlib.Path(root_dir)
+    root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "align_correct", exist_ok=True)
     for alg_file in os.listdir(root_dir / "align"):
-        df_alg = read_alg(root_dir / "align" / alg_file)
+        df_alg = utils.read_alg(root_dir / "align" / alg_file)
         df_query = pd.read_csv(
-            root_dir / "align" / f"{pathlib.Path(alg_file).stem}.query",
+            root_dir / "query" / f"{pathlib.Path(alg_file).stem}.query",
             sep="\t",
             names=["query", "count", "ref_id"],
             keep_default_na=False,
@@ -59,9 +23,11 @@ def correct_index(
         df_alg["index"] = df_query.groupby("query").transform("ngroup")
 
         chip = utils.infer_chip(alg_file)
-        df_ref = pd.read_csv(
-            root_dir / "ref" / "barcode" / f"{chip}.csv", header=0
-        ).reset_index(names="ref_id")
+        df_ref = (
+            pd.read_csv(root_dir / "ref" / "barcode" / f"{chip}.csv", header=0)
+            .reset_index(names="ref_id")
+            .astype({"first": int})
+        )
         df_alg = df_alg.merge(
             right=df_ref[["ref_id", "first"]],
             how="left",
@@ -83,7 +49,7 @@ def stat_read(root_dir: os.PathLike):
     df_algs = []
     for alg_file in os.listdir(root_dir / "align_correct"):
         df_algs.append(
-            read_alg(root_dir / "align_correct" / alg_file)
+            utils.read_alg(root_dir / "align_correct" / alg_file)
             .groupby("score")["count"]
             .sum()
             .reset_index()
@@ -98,14 +64,16 @@ def stat_read(root_dir: os.PathLike):
 def collect_data(
     root_dir: os.PathLike,
     min_score: int,
-) -> pd.DataFrame:
+):
     """
     Only collect data. Do not apply any annotation. Only apply read-wise filter such as score.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "treat" / "full", exist_ok=True)
+    os.makedirs(root_dir / "main" / "control" / "full", exist_ok=True)
     df_algs = []
     for alg_file in root_dir / "align_correct":
-        df_alg = read_alg(root_dir / "align_correct" / alg_file)
+        df_alg = utils.read_alg(root_dir / "align_correct" / alg_file)
         if df_alg.shape[0] == 0:
             continue
 
@@ -139,64 +107,84 @@ def collect_data(
         )
         df_algs.append(df_alg)
 
-    return pd.concat(df_algs).reset_index(drop=True)
+    df_alg = pd.concat(df_algs).assign(cas=lambda df: utils.infer_cas(df["stem"]))
+    df_alg.query("cas != 'control'").drop(columns="cas").reset_index(
+        drop=True
+    ).to_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+    df_alg.query("cas == 'control'").drop(columns="cas").reset_index(
+        drop=True
+    ).to_feather(root_dir / "main" / "control" / "full" / "treat.feather")
 
 
-def stat_mutant(df_alg: pd.DataFrame):
+def stat_mutant(root_dir: os.PathLike):
     save_dir = pathlib.Path("figures/hists/mutant")
     os.makedirs(save_dir, exist_ok=True)
 
-    utils.up_del_size(df_alg).plot.hist(
-        bins=30, weights=df_alg["count"]
+    df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+
+    utils.up_del_size(df_treat).plot.hist(
+        bins=30, weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "up_del_size.pdf")
     plt.close("all")
 
-    utils.down_del_size(df_alg).plot.hist(
-        bins=30, weights=df_alg["count"]
+    utils.down_del_size(df_treat).plot.hist(
+        bins=30, weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "down_del_size.pdf")
     plt.close("all")
 
-    utils.rand_ins_size(df_alg).plot.hist(
-        bins=30, weights=df_alg["count"]
+    utils.rand_ins_size(df_treat).plot.hist(
+        bins=30, weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
     plt.close("all")
 
-    utils.freq_mutant(df_alg).plot.hist(bins=100).get_figure().savefig(
+    utils.freq_mutant(df_treat).plot.hist(bins=100).get_figure().savefig(
         save_dir / "freq_mutant.pdf"
     )
     plt.close("all")
 
 
 def filter_mutant(
-    df_alg: pd.DataFrame,
+    root_dir: os.PathLike,
     max_up_del_size: int,
     max_down_del_size: int,
     max_rand_ins_size: int,
     max_freq_mutant: float,
-) -> pd.DataFrame:
+):
     """
     Do not filter mutant because missing mutant are treated as count 0. Set mutant count to nan to exclude it from all statistics involving count.
     """
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "treat" / "filter" / "mutant", exist_ok=True)
+
+    df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+
     mask = (
-        (utils.up_del_size(df_alg) <= max_up_del_size)
-        & (utils.down_del_size(df_alg) <= max_down_del_size)
-        & (utils.rand_ins_size(df_alg) <= max_rand_ins_size)
-        & ((utils.freq_mutant(df_alg) <= max_freq_mutant) | utils.is_wt(df_alg))
+        (utils.up_del_size(df_treat) <= max_up_del_size)
+        & (utils.down_del_size(df_treat) <= max_down_del_size)
+        & (utils.rand_ins_size(df_treat) <= max_rand_ins_size)
+        & ((utils.freq_mutant(df_treat) <= max_freq_mutant) | utils.is_wt(df_treat))
     )
-    df_alg.loc[~mask, "count"] = float("nan")
-    return df_alg
+    df_treat.loc[~mask, "count"] = float("nan")
+
+    df_treat.to_feather(
+        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+    )
 
 
-def stat_ref(df_alg: pd.DataFrame, min_count_tot: int):
+def stat_ref(root_dir: os.PathLike, min_count_tot: int):
     save_dir = pathlib.Path("figures/hists/ref")
     os.makedirs(save_dir, exist_ok=True)
 
-    df_alg.groupby(["stem", "ref_id"])["count"].sum().plot.hist(
+    df_treat = pd.read_feather(
+        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+    )
+
+    df_treat.groupby(["stem", "ref_id"])["count"].sum().plot.hist(
         bins=100
     ).get_figure().savefig(save_dir / "count_tot.pdf")
     plt.close("all")
 
-    df_alg.assign(freq_nowt=utils.freq_nowt(df_alg))[
+    df_treat.assign(freq_nowt=utils.freq_nowt(df_treat))[
         ["stem", "ref_id", "freq_nowt"]
     ].drop_duplicates()["freq_nowt"].plot.hist(bins=100).get_figure().savefig(
         save_dir / "freq_nowt.pdf"
@@ -204,8 +192,8 @@ def stat_ref(df_alg: pd.DataFrame, min_count_tot: int):
     plt.close("all")
 
     for tem in range(1, 5):
-        df_alg_freq = (
-            df_alg.assign(
+        df_treat_freq = (
+            df_treat.assign(
                 **{
                     "count_tot": lambda df: df.groupby(["stem", "ref_id"])[
                         "count"
@@ -234,24 +222,42 @@ def stat_ref(df_alg: pd.DataFrame, min_count_tot: int):
             f"freq_tem{tem}_blunt",
             f"freq_tem{tem}_dummy_rel_blunt",
         ]:
-            df_alg_freq[column].plot.hist(bins=100).get_figure().savefig(
+            df_treat_freq[column].plot.hist(bins=100).get_figure().savefig(
                 save_dir / f"{column}.pdf"
             )
             plt.close("all")
 
 
 def filter_ref(
-    df_alg: pd.DataFrame,
+    root_dir: os.PathLike,
     min_count_tot: int,
     max_freq_nowt: float,
     max_freq_temN: dict[int, float],
-) -> pd.DataFrame:
+    max_freq_temN_blunt: dict[int, float],
+    max_freq_temN_dummy_rel_blunt: dict[int, float],
+):
     """
     Use positive mask because nan compare always return False.
     """
-    mask = df_alg.groupby(["stem", "ref_id"])["count"].transform("sum") >= min_count_tot
-    mask = mask & (utils.freq_nowt(df_alg) <= max_freq_nowt)
-    for tem in range(1, 5):
-        mask = mask & (utils.freq_temN(df_alg, tem) <= max_freq_temN[tem])
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "treat" / "filter" / "ref", exist_ok=True)
 
-    return df_alg.loc[mask].reset_index(drop=True)
+    df_treat = pd.read_feather(
+        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+    )
+
+    mask = (
+        df_treat.groupby(["stem", "ref_id"])["count"].transform("sum") >= min_count_tot
+    )
+    mask = mask & (utils.freq_nowt(df_treat) <= max_freq_nowt)
+    for tem in range(1, 5):
+        mask = mask & (utils.freq_temN(df_treat, tem) <= max_freq_temN[tem])
+        mask = mask & (utils.freq_temN_blunt(df_treat, tem) <= max_freq_temN_blunt[tem])
+        mask = mask & (
+            utils.freq_temN_dummy_rel_blunt(df_treat, tem)
+            <= max_freq_temN_dummy_rel_blunt[tem]
+        )
+
+    df_treat.loc[mask].reset_index(drop=True).to_feather(
+        root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
+    )

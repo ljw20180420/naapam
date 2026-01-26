@@ -5,3 +5,13 @@ max_freq_temN:
   2: 0.001
   3: 0.0001
   4: 0.00001
+max_freq_temN_blunt:
+  1: 1.0
+  2: 2.0
+  3: 3.0
+  4: 4.0
+max_freq_temN_dummy_rel_blunt:
+  1: 0.2
+  2: 0.02
+  3: 0.002
+  4: 0.0002

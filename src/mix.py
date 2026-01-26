@@ -1,13 +1,30 @@
+import os
+import pathlib
+
 import pandas as pd
 
+from . import utils
 
-def duplicate_treat(df_treat: pd.DataFrame) -> pd.DataFrame:
-    df_treat["rep"] = "wt1 wt2"
-    df_treat.loc[df_treat["chip"] == "g2n-2", "rep"] = "wt1 wt2 wt11 wt21"
-    return (
-        df_treat.assign(rep=lambda df: df["rep"].str.split())
-        .explode("rep")
+
+def duplicate_treat(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "treat" / "filter" / "dup", exist_ok=True)
+    df_treat = pd.read_feather(
+        root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
+    )
+    df_treat.assign(
+        chip=lambda df: df["stem"].map(utils.infer_chip),
+        time=lambda df: df["stem"].map(utils.infer_time),
+        wt="wt1 wt2",
+    )
+    df_treat.loc[(df_treat["chip"] == "g2n") & (df_treat["time"] == 2), "wt"] = (
+        "wt1 wt2 wt11 wt21"
+    )
+    (
+        df_treat.assign(wt=lambda df: df["wt"].str.split())
+        .explode("wt")
         .reset_index(drop=True)
+        .to_feather(root_dir / "main" / "treat" / "filter" / "dup" / "treat.feather")
     )
 
 
