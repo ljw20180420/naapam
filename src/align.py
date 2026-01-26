@@ -828,24 +828,19 @@ def filter_treat(
         df_treat.to_feather(root_dir / "treat" / "filter" / treat_file)
 
 
-def demultiplex(
-    root_dir: os.PathLike,
-):
+def demultiplex(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "query", exist_ok=True)
-    os.makedirs(root_dir / "not_found", exist_ok=True)
+    os.makedirs(root_dir / "query" / "found", exist_ok=True)
+    os.makedirs(root_dir / "query" / "not_found", exist_ok=True)
+    save_dir = pathlib.Path(
+        f"figures/align/demultiplex/{pathlib.Path(treat_file).stem}"
+    )
+    os.makedirs(save_dir, exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "filter"):
         chip = utils.infer_chip(treat_file)
-        save_dir = pathlib.Path(
-            f"figures/align/demultiplex/{chip}/{pathlib.Path(treat_file).stem}"
-        )
-        os.makedirs(save_dir, exist_ok=True)
-
-        df_ref = pd.read_csv(
-            root_dir / "ref" / "barcode" / f"{chip}.csv",
-            header=0,
-            usecols=["barcode_id"],
-        ).reset_index(names="ref_id")
+        df_ref = pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
+            ["barcode_id"]
+        ].reset_index(names="ref_id")
 
         df_query = (
             pd.read_feather(root_dir / "treat" / "filter" / treat_file)
@@ -865,77 +860,65 @@ def demultiplex(
                 right=df_ref[["barcode_id", "ref_id"]],
                 how="left",
                 on=["barcode_id"],
-                validate="many_to_one",
             )
-            .assign(ref_id=lambda df: df["ref_id"].fillna(-1).astype(int))
+            .assign(
+                ref_id=lambda df: df["ref_id"].fillna(-1).astype(int),
+                count_distri=lambda df: df["count"]
+                / df.groupby("query").transform("size"),
+            )
         )
 
-        df_query.assign(found=lambda df: df["ref_id"] != -1).groupby("found")[
-            "count"
-        ].sum().reset_index().to_csv(save_dir / "found.csv", index=False)
-
-        df_query["count"].clip(upper=300).plot.hist(
-            bins=np.linspace(0, 301, 302), logy=True
-        ).get_figure().savefig(save_dir / "count.pdf")
-        plt.close("all")
-
-        df_query.query("ref_id == -1")["count"].clip(upper=300).plot.hist(
-            bins=np.linspace(0, 301, 302), logy=True
-        ).get_figure().savefig(save_dir / "not_found_count.pdf")
-        plt.close("all")
-
-        df_query.query("ref_id != -1")["count"].clip(upper=300).plot.hist(
-            bins=np.linspace(0, 301, 302), logy=True
-        ).get_figure().savefig(save_dir / "found_count.pdf")
-        plt.close("all")
-
-        # Get query count distribution for each ref. Queries with multiple refs are distributed to each ref evenly.
-        df_query.groupby("ref_id")["count"].sum().reset_index().to_csv(
+        # Get query number/count distribution for each ref. Count of query with multiple refs are distributed to each ref evenly.
+        df_query.groupby("ref_id").size().rename("number").to_csv(
+            save_dir / "query_number_per_ref.csv", index=False
+        )
+        df_query.groupby("ref_id")["count_distri"].sum().rename("count").to_csv(
             save_dir / "query_count_per_ref.csv", index=False
         )
 
-        df_query.query("ref_id == -1")[["query", "count"]].reset_index(
-            drop=True
-        ).to_csv(
-            root_dir / "not_found" / f"{pathlib.Path(treat_file).stem}.query",
+        df_query.query("ref_id == -1")[["query", "count"]].to_csv(
+            root_dir / "query" / "not_found" / f"{pathlib.Path(treat_file).stem}.query",
             sep="\t",
             header=False,
             index=False,
         )
-        df_query.query("ref_id != -1").reset_index(drop=True)[
-            ["query", "count", "ref_id"]
-        ].to_csv(
-            root_dir / "query" / f"{pathlib.Path(treat_file).stem}.query",
+        df_query.query("ref_id != -1")[["query", "count", "ref_id"]].to_csv(
+            root_dir / "query" / "found" / f"{pathlib.Path(treat_file).stem}.query",
             sep="\t",
             header=False,
             index=False,
         )
 
+    summary_demultiplex(save_dir)
 
-def draw_demultiplex():
-    save_dir = pathlib.Path("figures/align/draw_demultiplex")
 
-    df_founds = []
+def summary_demultiplex(save_dir: os.PathLike):
+    save_dir = pathlib.Path(os.fspath(save_dir))
+    df_query_number_per_refs = []
     df_query_count_per_refs = []
-    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        for stem in os.listdir(save_dir / chip):
-            df_founds.append(
-                pd.read_csv(save_dir / chip / stem / "found.csv", header=0).assign(
-                    stem=stem
-                )
-            )
-            df_query_count_per_refs.append(
-                pd.read_csv(
-                    save_dir / chip / stem / "query_count_per_ref.csv", header=0
-                ).assign(stem=stem)
-            )
+    for stem in os.listdir(save_dir):
+        if not os.path.isdir(stem):
+            continue
 
-    df_found = (
-        pd.concat(df_founds)
-        .reset_index(drop=True)
-        .pivot_table(values="count", index="stem", columns="found", aggfunc="sum")
+        df_query_number_per_refs.append(
+            pd.read_csv(save_dir / stem / "query_number_per_ref.csv", header=0).assign(
+                stem=stem
+            )
+        )
+        df_query_count_per_refs.append(
+            pd.read_csv(save_dir / stem / "query_count_per_ref.csv", header=0).assign(
+                stem=stem
+            )
+        )
+
+    pd.concat(df_query_number_per_refs).groupby("ref_id")[
+        "number"
+    ].sum().reset_index().plot.scatter(
+        x="ref_id", y="number", logy=True
+    ).get_figure().savefig(
+        save_dir / "query_number_per_ref.pdf"
     )
-    df_found.plot.bar(stacked=True).get_figure().savefig(save_dir / "found.pdf")
+
     pd.concat(df_query_count_per_refs).groupby("ref_id")[
         "count"
     ].sum().reset_index().plot.scatter(
