@@ -8,11 +8,11 @@ from . import utils
 
 def duplicate_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "filter" / "dup", exist_ok=True)
+    os.makedirs(root_dir / "main" / "treat" / "dup", exist_ok=True)
     df_treat = pd.read_feather(
         root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
     )
-    df_treat.assign(
+    df_treat = df_treat.assign(
         chip=lambda df: df["stem"].map(utils.infer_chip),
         time=lambda df: df["stem"].map(utils.infer_time),
         wt="wt1 wt2",
@@ -24,40 +24,78 @@ def duplicate_treat(root_dir: os.PathLike):
         df_treat.assign(wt=lambda df: df["wt"].str.split())
         .explode("wt")
         .reset_index(drop=True)
-        .to_feather(root_dir / "main" / "treat" / "filter" / "dup" / "treat.feather")
+        .to_feather(root_dir / "main" / "treat" / "dup" / "treat.feather")
     )
 
 
-def duplicate_control(df_control: pd.DataFrame) -> pd.DataFrame:
-    df_control.loc[
-        (df_control["rep"] == "wt1") & (df_control["chip"] == "a2-1"), "chip"
-    ] = "a2-1 a2-3"
-    df_control.loc[
-        (df_control["rep"] == "wt1") & (df_control["chip"] == "a2-2"), "chip"
-    ] = "a2-2 a2-4"
-    df_control.loc[
-        (df_control["rep"] == "wt1") & (df_control["chip"] == "g1n-2"), "chip"
-    ] = "g1n-2 g1n-1"
-    df_control.loc[
-        (df_control["rep"] == "wt1") & (df_control["chip"] == "g2n-4"), "chip"
-    ] = "g2n-4 g2n-3"
-    df_control.loc[
-        (df_control["rep"] == "wt1") & (df_control["chip"] == "g3n-1"), "chip"
-    ] = "g3n-1 g3n-2 g3n-3 g3n-4"
-    df_control.loc[
-        (df_control["rep"] == "wt2") & (df_control["chip"] == "a2-3"), "chip"
-    ] = "a2-3 a2-4"
-    df_control.loc[
-        (df_control["rep"] == "wt2") & (df_control["chip"] == "a3-3"), "chip"
-    ] = "a3-3 a3-4"
-    df_control.loc[
-        (df_control["rep"] == "wt2") & (df_control["chip"] == "g3n-1"), "chip"
-    ] = "g3n-1 g3n-2 g3n-3 g3n-4"
+def duplicate_control(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "main" / "control" / "dup", exist_ok=True)
+    df_control = pd.read_feather(
+        root_dir / "main" / "control" / "full" / "control.feather"
+    )
 
-    return (
-        df_control.assign(chip=lambda df: df["chip"].str.split())
-        .explode("chip")
+    df_control = df_control.assign(
+        chip=lambda df: df["stem"].map(utils.infer_chip),
+        time=lambda df: df["stem"].map(utils.infer_time).astype(str),
+        wt=lambda df: df["stem"].map(utils.infer_wt),
+    )
+
+    df_control.loc[
+        (df_control["wt"] == "wt1")
+        & (df_control["chip"] == "a2")
+        & (df_control["time"] == "1"),
+        "time",
+    ] = "1 3"
+    df_control.loc[
+        (df_control["wt"] == "wt1")
+        & (df_control["chip"] == "a2")
+        & (df_control["time"] == "2"),
+        "time",
+    ] = "2 4"
+    df_control.loc[
+        (df_control["wt"] == "wt1")
+        & (df_control["chip"] == "g1n")
+        & (df_control["time"] == "2"),
+        "time",
+    ] = "2 1"
+    df_control.loc[
+        (df_control["wt"] == "wt1")
+        & (df_control["chip"] == "g2n")
+        & (df_control["time"] == "4"),
+        "time",
+    ] = "4 3"
+    df_control.loc[
+        (df_control["wt"] == "wt1")
+        & (df_control["chip"] == "g3n")
+        & (df_control["time"] == "1"),
+        "time",
+    ] = "1 2 3 4"
+    df_control.loc[
+        (df_control["wt"] == "wt2")
+        & (df_control["chip"] == "a2")
+        & (df_control["time"] == "3"),
+        "time",
+    ] = "3 4"
+    df_control.loc[
+        (df_control["wt"] == "wt2")
+        & (df_control["chip"] == "a3")
+        & (df_control["time"] == "3"),
+        "time",
+    ] = "3 4"
+    df_control.loc[
+        (df_control["wt"] == "wt2")
+        & (df_control["chip"] == "g3n")
+        & (df_control["time"] == "1"),
+        "time",
+    ] = "1 2 3 4"
+
+    (
+        df_control.assign(time=lambda df: df["time"].str.split())
+        .explode("time")
         .reset_index(drop=True)
+        .astype({"time": int})
+        .to_feather(root_dir / "main" / "control" / "dup" / "control.feather")
     )
 
 

@@ -88,6 +88,13 @@ def infer_rep(file: os.PathLike) -> int:
     return 1
 
 
+def infer_wt(file: os.PathLike) -> str:
+    assert infer_cas(file) == "control", "not wild type"
+    name = pathlib.Path(os.fspath(file)).name.lower()
+    wt = name.split("-", 1)[0]
+    return wt
+
+
 def p5primer() -> str:
     return "GTGGAAAGGACGAAACACC"
 

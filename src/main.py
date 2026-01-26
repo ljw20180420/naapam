@@ -143,7 +143,7 @@ def collect_data(
     ).to_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
     df_alg.query("cas == 'control'").drop(columns="cas").reset_index(
         drop=True
-    ).to_feather(root_dir / "main" / "control" / "full" / "treat.feather")
+    ).to_feather(root_dir / "main" / "control" / "full" / "control.feather")
 
 
 def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
