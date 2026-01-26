@@ -2,7 +2,7 @@ rearr() {
     local query
     local ref
     read query ref <<<$@
-    local align_dir="$(dirname "$(dirname "${query}")")/align"
+    local align_dir="$(dirname "$(dirname "${query}")")/align/raw"
     local align_file="$(basename "${query}")"
     align_file="${align_dir}/${align_file%.query}.alg"
     local line_num="$(wc -l < "${ref}")"
