@@ -2,6 +2,7 @@ import os
 import pathlib
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from scipy import special
 
@@ -104,17 +105,13 @@ def collect_data(
     os.makedirs(root_dir / "main" / "treat" / "full", exist_ok=True)
     os.makedirs(root_dir / "main" / "control" / "full", exist_ok=True)
     df_algs = []
-    for alg_file in root_dir / "align_correct":
-        df_alg = utils.read_alg(root_dir / "align_correct" / alg_file)
+    for alg_file in root_dir / "align" / "correct":
+        df_alg = utils.read_alg(root_dir / "align" / "correct" / alg_file)
         if df_alg.shape[0] == 0:
             continue
 
         df_alg = (
             df_alg.query("score >= @min_score")
-            .assign(
-                count=lambda df: df["count"]
-                * (df["first"] / df.groupby("index")["first"].transform("sum")),
-            )
             .groupby(
                 [
                     "ref_id",
@@ -124,8 +121,9 @@ def collect_data(
                     "random_insertion",
                     "ref_start2",
                 ]
-            )["count"]
+            )["count_distri"]
             .sum()
+            .rename("count")
             .reset_index()
             .astype(
                 {
@@ -139,7 +137,7 @@ def collect_data(
         )
         df_algs.append(df_alg)
 
-    df_alg = pd.concat(df_algs).assign(cas=lambda df: utils.infer_cas(df["stem"]))
+    df_alg = pd.concat(df_algs).assign(cas=lambda df: df["stem"].map(utils.infer_cas))
     df_alg.query("cas != 'control'").drop(columns="cas").reset_index(
         drop=True
     ).to_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
@@ -149,23 +147,23 @@ def collect_data(
 
 
 def stat_mutant(root_dir: os.PathLike):
-    save_dir = pathlib.Path("figures/hists/mutant")
+    save_dir = pathlib.Path("figures/main/stat_mutant")
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
 
-    utils.up_del_size(df_treat).plot.hist(
-        bins=30, weights=df_treat["count"]
+    utils.up_del_size(df_treat).clip(upper=30).plot.hist(
+        bins=np.linspace(0, 31, 32), weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "up_del_size.pdf")
     plt.close("all")
 
-    utils.down_del_size(df_treat).plot.hist(
-        bins=30, weights=df_treat["count"]
+    utils.down_del_size(df_treat).clip(upper=30).plot.hist(
+        bins=np.linspace(0, 31, 32), weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "down_del_size.pdf")
     plt.close("all")
 
-    utils.rand_ins_size(df_treat).plot.hist(
-        bins=30, weights=df_treat["count"]
+    utils.rand_ins_size(df_treat).clip(upper=30).plot.hist(
+        bins=np.linspace(0, 31, 32), weights=df_treat["count"]
     ).get_figure().savefig(save_dir / "rand_ins_size.pdf")
     plt.close("all")
 
