@@ -209,9 +209,9 @@ def build_barcode(root_dir: os.PathLike):
 def prepare_barcode_CTG_target_prefix(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "barcode" / "read", exist_ok=True)
-    for parse_file in os.listdir(root_dir / "parse"):
+    for parse_file in os.listdir(root_dir / "parse" / "nobar"):
         df = pd.read_csv(
-            root_dir / "parse" / parse_file,
+            root_dir / "parse" / "nobar" / parse_file,
             sep="\t",
             header=0,
             usecols=["barcode_CTG_target_prefix"],
@@ -260,7 +260,7 @@ def map_barcode(root_dir: os.PathLike):
                 "-S",
                 (
                     root_dir
-                    / "bowtie2"
+                    / "barcode"
                     / "align"
                     / f"{pathlib.Path(csv_file).stem}.sam"
                 ).as_posix(),
@@ -270,8 +270,9 @@ def map_barcode(root_dir: os.PathLike):
 
 def parse_barcode(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "parse" / "nobar", exist_ok=True)
-    for sam_file in os.listdir(root_dir / "barcode" / "align"):
+    os.makedirs(root_dir / "parse" / "bar", exist_ok=True)
+    for parse_file in os.listdir(root_dir / "parse" / "nobar"):
+        sam_file = f"{pathlib.Path(parse_file).stem}.sam"
         sam = pysam.AlignmentFile(root_dir / "barcode" / "align" / sam_file)
         barcode_heads = []
         barcodes = []
@@ -294,7 +295,7 @@ def parse_barcode(root_dir: os.PathLike):
 
         df_parse = (
             pd.read_csv(
-                root_dir / "parse" / "nobar" / f"{pathlib.Path(sam_file).stem}.parse",
+                root_dir / "parse" / "nobar" / parse_file,
                 sep="\t",
                 header=0,
                 keep_default_na=False,
@@ -337,6 +338,178 @@ def parse_barcode(root_dir: os.PathLike):
             ]
         )
 
-        df_parse.to_feather(
-            root_dir / "parse" / "bar" / f"{pathlib.Path(sam_file).stem}.parse"
+        df_parse.to_csv(
+            root_dir / "parse" / "bar" / parse_file,
+            sep="\t",
+            index=False,
+        )
+
+
+def build_sgRNA(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "sgRNA" / "index", exist_ok=True)
+    df_plasmid = pd.read_csv(
+        "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv",
+        header=0,
+    )
+    with open(root_dir / "sgRNA" / "index" / "sgRNA.fa", "w") as fd:
+        for i, sgRNA in enumerate(df_plasmid["sgRNA"]):
+            fd.write(f">b{i}\n{sgRNA}\n")
+
+        subprocess.run(
+            args=[
+                "bowtie2-build",
+                (root_dir / "sgRNA" / "index" / "sgRNA.fa").as_posix(),
+                (root_dir / "sgRNA" / "index" / "sgRNA").as_posix(),
+            ]
+        )
+
+
+def prepare_R1_sgRNA_and_R2_sgRNA(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    for column in ["R1_sgRNA", "R2_sgRNA"]:
+        os.makedirs(root_dir / "sgRNA" / "read" / column, exist_ok=True)
+        for parse_file in os.listdir(root_dir / "parse" / "bar"):
+            df = pd.read_csv(
+                root_dir / "parse" / "bar" / parse_file,
+                sep="\t",
+                header=0,
+                usecols=[column],
+                keep_default_na=False,
+            )
+            df[column] = df[column].where(df[column] != "", "N")
+            df.to_csv(
+                root_dir
+                / "sgRNA"
+                / "read"
+                / column
+                / f"{pathlib.Path(parse_file).stem}.csv",
+                header=False,
+                index=False,
+            )
+
+
+def map_sgRNA(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    for column in ["R1_sgRNA", "R2_sgRNA"]:
+        os.makedirs(root_dir / "sgRNA" / "align" / column, exist_ok=True)
+        for csv_file in os.listdir(root_dir / "sgRNA" / "read" / column):
+            subprocess.run(
+                args=[
+                    "bowtie2",
+                    "--quiet",
+                    "-p",
+                    "24",
+                    "--mm",
+                    "--norc",
+                    "--local",
+                    "-L",
+                    "7",
+                    "--ma",
+                    "1",
+                    "--mp",
+                    "2,2",
+                    "--rdg",
+                    "3,1",
+                    "--rfg",
+                    "3,1",
+                    "--score-min",
+                    "C,1",
+                    "-r",
+                    "-x",
+                    (root_dir / "sgRNA" / "index" / "sgRNA").as_posix(),
+                    "-U",
+                    (root_dir / "sgRNA" / "read" / column / csv_file).as_posix(),
+                    "-S",
+                    (
+                        root_dir
+                        / "sgRNA"
+                        / "align"
+                        / column
+                        / f"{pathlib.Path(csv_file).stem}.sam"
+                    ).as_posix(),
+                ],
+            )
+
+
+def parse_sgRNA(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "parse" / "sgRNA", exist_ok=True)
+    for parse_file in os.listdir(root_dir / "parse" / "bar"):
+        sam_file = f"{pathlib.Path(parse_file).stem}.sam"
+
+        R1_sam = pysam.AlignmentFile(
+            root_dir / "sgRNA" / "align" / "R1_sgRNA" / sam_file
+        )
+        R1_sgRNA_ids = []
+        R1_sgRNA_bowtie2_scores = []
+        for align in R1_sam.fetch():
+            if (align.flag // 4) % 2 == 1:
+                R1_sgRNA_ids.append(-1)
+                R1_sgRNA_bowtie2_scores.append(0)
+            else:
+                R1_sgRNA_ids.append(align.rname)
+                R1_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
+
+        R2_sam = pysam.AlignmentFile(
+            root_dir / "sgRNA" / "align" / "R2_sgRNA" / sam_file
+        )
+        R2_sgRNA_ids = []
+        R2_sgRNA_bowtie2_scores = []
+        for align in R2_sam.fetch():
+            if (align.flag // 4) % 2 == 1:
+                R2_sgRNA_ids.append(-1)
+                R2_sgRNA_bowtie2_scores.append(0)
+            else:
+                R2_sgRNA_ids.append(align.rname)
+                R2_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
+
+        df_parse = pd.read_csv(
+            root_dir / "parse" / "bar" / parse_file,
+            sep="\t",
+            header=0,
+            keep_default_na=False,
+        ).assign(
+            R1_sgRNA_id=R1_sgRNA_ids,
+            R1_sgRNA_bowtie2_score=R1_sgRNA_bowtie2_scores,
+            R2_sgRNA_id=R2_sgRNA_ids,
+            R2_sgRNA_bowtie2_score=R2_sgRNA_bowtie2_scores,
+        )[
+            [
+                "R1_barcode",
+                "R1_primer",
+                "G",
+                "R1_sgRNA",
+                "R1_scaffold_prefix",
+                "R1_tail",
+                "R1_primer_score",
+                "R1_scaffold_prefix_score",
+                "R2_barcode",
+                "R2_primer",
+                "barcode_head",
+                "barcode",
+                "CTG_target_prefix",
+                "R2_sgRNA",
+                "pam",
+                "target_suffix",
+                "C",
+                "R2_scaffold_prefix",
+                "R2_tail",
+                "R2_primer_score",
+                "R2_scaffold_prefix_score",
+                "R2_sgRNA_score",
+                "barcode_score",
+                "R1_sgRNA_bowtie2_score",
+                "R2_sgRNA_bowtie2_score",
+                "barcode_id",
+                "R1_sgRNA_id",
+                "R2_sgRNA_id",
+                "count",
+            ]
+        ]
+
+        df_parse.to_csv(
+            root_dir / "parse" / "sgRNA" / parse_file,
+            sep="\t",
+            index=False,
         )
