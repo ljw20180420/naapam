@@ -234,8 +234,6 @@ def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         save_dir = pathlib.Path(f"figures/align/stat_control/{chip}")
-        os.makedirs(save_dir, exist_ok=True)
-
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
         stat(df=df_control, save_dir=save_dir)
         draw(
@@ -751,18 +749,17 @@ def collect_treat(root_dir: os.PathLike):
 
 def stat_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-
+    save_dir = pathlib.Path("figures/align/stat_treat")
     save_dirs = []
     for treat_file in os.listdir(root_dir / "treat" / "full"):
         df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
-        save_dir = f"figures/align/stat_treat/{pathlib.Path(treat_file).stem}"
         stat(
             df=df_treat,
-            save_dir=save_dir,
+            save_dir=save_dir / pathlib.Path(treat_file).stem,
         )
-        save_dirs.append(save_dir)
+        save_dirs.append(save_dir / pathlib.Path(treat_file).stem)
 
-    draw(save_dirs, summary_dir=f"figures/align/stat_treat")
+    draw(save_dirs, summary_dir=save_dir)
 
 
 def filter_treat(
@@ -786,6 +783,8 @@ def filter_treat(
     # min_R2_sgRNA_score: int,
     # min_R2_scaffold_prefix_score: int,
     # min_barcode_score: int,
+    min_R1_sgRNA_bowtie2_score: int,
+    # min_R2_sgRNA_bowtie2_score: int,
     G: list[str],
     # C: list[str],
     # a_pam_tail: list[str],
@@ -813,8 +812,10 @@ def filter_treat(
                 @range_R2_primer_length[0] <= R2_primer.str.len() <= @range_R2_primer_length[1] and \
                 R1_primer_score >= @min_R1_primer_score and \
                 R2_primer_score >= @min_R2_primer_score and \
+                R1_sgRNA_bowtie2_score >= @min_R1_sgRNA_bowtie2_score and \
                 G.isin(@G) and \
-                count >= @min_count
+                count >= @min_count and \
+                barcode_id == R1_sgRNA_id
             """
         ).reset_index(drop=True)
         df_stat.loc["filter", "row_num"] = df_treat.shape[0]
@@ -830,10 +831,7 @@ def filter_treat(
 def demultiplex(
     root_dir: os.PathLike,
 ):
-    """
-    |<p5barcode|9-18><p5primer|19>G<sgRNA|20><scaffold|82-92>G<16|CCN|sgRNARC|5>CAG<barcodeRC|18><p7primerRC|21><p7barcodeRC|9-18>|
-    """
-    root_dir = pathlib.Path(root_dir)
+    root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "query", exist_ok=True)
     os.makedirs(root_dir / "not_found", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "filter"):

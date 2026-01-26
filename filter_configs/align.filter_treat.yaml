@@ -9,6 +9,7 @@ range_R2_primer_length:
   - 21
 min_R1_primer_score: 30
 min_R2_primer_score: 30
+min_R1_sgRNA_bowtie2_score: 15
 G:
   - "G"
 min_count: 1
