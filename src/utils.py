@@ -262,18 +262,30 @@ def kim(df: pd.DataFrame) -> tuple[pd.Series]:
     return count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim
 
 
-def pivot(df: pd.DataFrame, column: str) -> pd.DataFrame:
+def pivot_value(df: pd.DataFrame, value: str, column: str) -> pd.DataFrame:
     df = (
-        df.assign(**{column: lambda df: df[column].where(df["legal"], -float("inf"))})
+        df.assign(**{value: lambda df: df[value].where(df["legal"], float("nan"))})
         .pivot_table(
-            values=column,
+            values=value,
             index=["stem", "ref_id"],
-            columns=["ref_end1", "ref_start2", "random_insertion"],
+            columns=column,
             aggfunc="sum",
             fill_value=0,
         )
-        .map(lambda val: float("nan") if val == -float("inf") else val)
+        .reset_index()
     )
+
+    return df
+
+
+def pivot_legal(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    df = df.pivot_table(
+        values="legal",
+        index=["stem", "ref_id"],
+        columns=column,
+        aggfunc="any",
+        fill_value=True,
+    ).reset_index()
 
     return df
 

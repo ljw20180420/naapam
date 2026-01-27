@@ -1,9 +1,10 @@
 import os
 import pathlib
 
-import matplotlib.pyplot as plt
 import pandas as pd
 from plotnine import aes, geom_line, ggplot, scale_color_manual
+
+from . import utils
 
 grid_colors = [
     "#FF0000",
@@ -35,103 +36,59 @@ grid_colors = [
 ]
 
 
-def over_up_del_size_on_tem(
-    df_treat: pd.DataFrame,
-    tem: int,
-    targets: list[str],
-    aggfunc: str,
-) -> None:
-    df_treat = (
-        df_treat.query(
-            """
-                @cut2 - ref_start2 == @tem and \
-                ref_end1 <= @cut1
-            """
-        )
-        .assign(up_del_size=lambda df: cut1 - df["ref_end1"])
-        .groupby(["cas", "up_del_size"])
-        .agg(
-            **{
-                target: pd.NamedAgg(column=target, aggfunc=aggfunc)
-                for target in targets
-            }
-        )
-        .reset_index()
-        .melt(
-            id_vars=["cas", "up_del_size"],
-            value_vars=targets,
-            var_name="target",
-            value_name="value",
-        )
-        .assign(group=lambda df: df["cas"] + "_" + df["target"])
-    )
-    if len(df_treat) == 0:
-        return
-
-    save_dir = pathlib.Path("figures/over_up_del_size_on_tem")
-    os.makedirs(save_dir, exist_ok=True)
-    filename = "_".join(targets) + f"_{aggfunc}_{tem}.pdf"
-    (
-        ggplot(df_treat, aes(x="up_del_size", y="value", color="group"))
-        + geom_line()
-        + scale_color_manual(values=grid_colors)
-    ).save(save_dir / filename)
-
-
-def draw_deletion_size(
-    df: pd.DataFrame,
-    targets: list[str],
-    aggfunc: str,
-    min_edit_total: int,
-    min_edit_freq: float,
-    cut1: int,
-    cut2: int,
+def mean_freq_over_up_del_size_on_tem(
+    root_dir: os.PathLike,
 ):
-    df = df.query(
-        """
-            ref_end1 <= @cut1 and \
-            count_total_correct - count_wt >= @min_edit_total and \
-            (count_total_correct - count_wt) / count_total_correct - (count_total_control - count_wt_control) / count_total_control >= @min_edit_freq
-        """
-    )
-    df = (
-        df.assign(deletion_size=lambda df: cut1 - df["ref_end1"])
-        .groupby(["cas", "deletion_size"])
-        .agg(
-            **{
-                target: pd.NamedAgg(column=target, aggfunc=aggfunc)
-                for target in targets
-            }
-        )
-        .reset_index()
-        .melt(
-            id_vars=["cas", "deletion_size"],
-            value_vars=targets,
-            var_name="target",
-            value_name="value",
-        )
-        .assign(group=lambda df: df["cas"] + "_" + df["target"])
-    )
-    if len(df) == 0:
-        return
-
-    save_dir = pathlib.Path("figures/draw_deletion_size")
+    save_dir = pathlib.Path("figures/main/mean_freq_over_up_del_size_on_tem")
     os.makedirs(save_dir, exist_ok=True)
-    filename = "_".join(targets) + f"_{aggfunc}.pdf"
-    (
-        ggplot(df, aes(x="deletion_size", y="value", color="group"))
-        + geom_line()
-        + scale_color_manual(
-            values=[
-                "#FF0000",
-                "#00FF00",
-                "#0000FF",
-                "#FFFF00",
-                "#FF00FF",
-                "#00FFFF",
-                "#000000",
-                "#888888",
-                "#880000",
-            ]
+
+    df_treat = pd.read_feather(
+        root_dir / "main" / "treat" / "correct" / "treat.feather"
+    )
+
+    for tem in range(1, 5):
+        df_tem = (
+            df_treat.query(
+                """
+                    cut2 - ref_start2 == @tem and \
+                    ref_end1 <= cut1
+                """
+            )
+            .reset_index(drop=True)
+            .assign(
+                up_del_size=lambda df: df["cut1"] - df["ref_end1"],
+            )
         )
-    ).save(save_dir / filename)
+
+        df_value = (
+            utils.pivot_value(df=df_tem, value="freq_norm_kim", column="up_del_size")
+            .assign(cas=lambda df: df["stem"].map(utils.infer_cas))
+            .drop(columns=["stem", "ref_id"])
+            .groupby("cas")
+            .sum()
+        )
+        df_legal = (
+            utils.pivot_legal(df=df_tem, column="up_del_size")
+            .assign(cas=lambda df: df["stem"].map(utils.infer_cas))
+            .drop(columns=["stem", "ref_id"])
+            .groupby("cas")
+            .sum()
+        )
+        value_vars = df_legal.columns
+
+        df_mean = (
+            (df_value / df_legal)
+            .reset_index()
+            .melt(
+                id_vars="cas",
+                value_vars=value_vars,
+                var_name="up_del_size",
+                value_name="freq_norm_kim",
+            )
+        )
+
+        (
+            ggplot(df_mean, aes(x="up_del_size", y="freq_norm_kim", color="cas"))
+            + geom_line()
+            + scale_color_manual(values=grid_colors)
+        ).save(save_dir / str(tem) / "freq_norm_kim.pdf")
