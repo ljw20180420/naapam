@@ -229,7 +229,6 @@ def freq_temN(df: pd.DataFrame, tem: int) -> pd.Series:
     freq_temN = count_temN(df, tem) / df.groupby(["stem", "ref_id"])["count"].transform(
         "sum"
     )
-
     return freq_temN
 
 
@@ -237,13 +236,11 @@ def freq_temN_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
     freq_temN_blunt = count_temN_blunt(df, tem) / df.groupby(["stem", "ref_id"])[
         "count"
     ].transform("sum")
-
     return freq_temN_blunt
 
 
 def freq_temN_dummy_rel_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
     freq_temN_dummy_rel_blunt = count_temN(df, tem) / (count_temN_blunt(df, tem) + 1e-6)
-
     return freq_temN_dummy_rel_blunt
 
 
@@ -258,18 +255,27 @@ def kim(df: pd.DataFrame) -> tuple[pd.Series]:
         ["stem", "ref_id"]
     )["count_kim"].transform("sum")
     count_kim[is_wt(df)] = count_wt_kim[is_wt(df)]
-
-    return count_kim, count_wt_kim, count_tot_kim
-
-
-def freq_kim(df: pd.DataFrame) -> pd.Series:
-    return df["count_kim"] / (df["count_tot_kim"] + 1e-6)
-
-
-def freq_norm_kim(df: pd.DataFrame) -> pd.Series:
-    freq_norm_kim = df["count_kim"] / (df["count_tot_kim"] + 1e-6 - df["count_wt_kim"])
+    freq_kim = count_kim / (count_tot_kim + 1e-6)
+    freq_norm_kim = count_kim / (count_tot_kim + 1e-6 - count_wt_kim)
     freq_norm_kim[is_wt(df)] = float("nan")
-    return freq_norm_kim
+
+    return count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim
+
+
+def pivot(df: pd.DataFrame, column: str) -> pd.DataFrame:
+    df = (
+        df.assign(**{column: lambda df: df[column].where(df["legal"], -float("inf"))})
+        .pivot_table(
+            values=column,
+            index=["stem", "ref_id"],
+            columns=["ref_end1", "ref_start2", "random_insertion"],
+            aggfunc="sum",
+            fill_value=0,
+        )
+        .map(lambda val: float("nan") if val == -float("inf") else val)
+    )
+
+    return df
 
 
 ###########################################

@@ -310,6 +310,7 @@ def filter_nofunc_control(
                 C.isin(@C) and \
                 pam.str.slice(start=-2).isin(@pam_tail) and \
                 count >= @min_count and \
+                barcode_id >= 0 and \
                 barcode_id == R1_sgRNA_id == R2_sgRNA_id
             """,
             inplace=True,
@@ -815,6 +816,7 @@ def filter_treat(
                 R1_sgRNA_bowtie2_score >= @min_R1_sgRNA_bowtie2_score and \
                 G.isin(@G) and \
                 count >= @min_count and \
+                barcode_id >= 0 and \
                 barcode_id == R1_sgRNA_id
             """
         ).reset_index(drop=True)

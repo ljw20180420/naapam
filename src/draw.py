@@ -3,7 +3,7 @@ import pathlib
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from plotnine import aes, geom_line, ggplot, scale_color_discrete, scale_color_manual
+from plotnine import aes, geom_line, ggplot, scale_color_manual
 
 grid_colors = [
     "#FF0000",
@@ -40,8 +40,6 @@ def over_up_del_size_on_tem(
     tem: int,
     targets: list[str],
     aggfunc: str,
-    cut1: int = 50,
-    cut2: int = 60,
 ) -> None:
     df_treat = (
         df_treat.query(
