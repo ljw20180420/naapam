@@ -295,3 +295,21 @@ def filter_ref(
     df_treat.loc[mask].reset_index(drop=True).to_feather(
         root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
     )
+
+
+def kim_correct(
+    root_dir: os.PathLike,
+):
+    os.makedirs(root_dir / "main" / "treat" / "correct", exist_ok=True)
+
+    df_treat = pd.read_feather(root_dir / "main" / "treat" / "merge" / "treat.feather")
+    count_kim, count_wt_kim, count_tot_kim = utils.kim(df_treat)
+    df_treat = df_treat.assign(
+        count_kim=count_kim,
+        count_wt_kim=count_wt_kim,
+        count_tot_kim=count_tot_kim,
+        freq_kim=lambda df: utils.freq_kim(df),
+        freq_norm_kim=lambda df: utils.freq_norm_kim(df),
+    )
+
+    df_treat.to_feather(root_dir / "main" / "treat" / "correct" / "treat.feather")
