@@ -247,6 +247,31 @@ def freq_temN_dummy_rel_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
     return freq_temN_dummy_rel_blunt
 
 
+def kim(df: pd.DataFrame) -> tuple[pd.Series]:
+    count_tot = df.groupby(["stem", "ref_id"])["count"].transform("sum")
+    count_kim = np.maximum(
+        0, df["count"] - count_tot * (df["count_ctl"] / (df["count_tot_ctl"] + 1e-6))
+    )
+    count_kim[is_wt(df)] = float("nan")
+    count_tot_kim = count_tot * (df["count_wt_ctl"] / (df["count_tot_ctl"] + 1e-6))
+    count_wt_kim = count_tot_kim - df.assign(count_kim=count_kim).groupby(
+        ["stem", "ref_id"]
+    )["count_kim"].transform("sum")
+    count_kim[is_wt(df)] = count_wt_kim[is_wt(df)]
+
+    return count_kim, count_wt_kim, count_tot_kim
+
+
+def freq_kim(df: pd.DataFrame) -> pd.Series:
+    return df["count_kim"] / (df["count_tot_kim"] + 1e-6)
+
+
+def freq_norm_kim(df: pd.DataFrame) -> pd.Series:
+    freq_norm_kim = df["count_kim"] / (df["count_tot_kim"] + 1e-6 - df["count_wt_kim"])
+    freq_norm_kim[is_wt(df)] = float("nan")
+    return freq_norm_kim
+
+
 ###########################################
 # rearr
 ###########################################

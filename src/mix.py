@@ -24,6 +24,7 @@ def duplicate_treat(root_dir: os.PathLike):
         df_treat.assign(wt=lambda df: df["wt"].str.split())
         .explode("wt")
         .reset_index(drop=True)
+        .assign(stem=lambda df: df["stem"] + "_" + df["wt"])
         .to_feather(root_dir / "main" / "treat" / "dup" / "treat.feather")
     )
 
@@ -94,6 +95,7 @@ def duplicate_control(root_dir: os.PathLike):
         df_control.assign(time=lambda df: df["time"].str.split())
         .explode("time")
         .reset_index(drop=True)
+        .assign(stem=lambda df: df["stem"] + "_" + df["time"])
         .astype({"time": int})
         .to_feather(root_dir / "main" / "control" / "dup" / "control.feather")
     )
