@@ -1,7 +1,7 @@
 import os
 import pathlib
 import subprocess
-
+from  importlib import resources
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -333,11 +333,11 @@ def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
     os.makedirs(root_dir / "control" / "cluster", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         if chip in ["a1", "a2", "a3"]:
-            df_plasmid = pd.read_csv(
-                "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
-            )
+            plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
         else:
-            df_plasmid = pd.read_csv("plasmids/final_hgsgrna_libb_all_0811-NGG.csv")
+            plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
+        with resources.as_file(resources.files("naapam.plasmids") / plasmid_file) as pf:
+            df_plasmid = pd.read_csv(pf, header=0)
         df_plasmid = df_plasmid.assign(
             ref2=lambda df: (
                 "AAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGCTTTTTTG"
