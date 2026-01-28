@@ -1,8 +1,7 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
+
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
-set(PYBIND11_FINDPYTHON ON)
-find_package(pybind11 CONFIG REQUIRED)
-
-pybind11_add_module(_core MODULE src/main.cpp)
-install(TARGETS _core DESTINATION ${SKBUILD_PROJECT_NAME})
+add_executable(rearrangement src/main.cpp)
+target_compile_options(rearrangement PRIVATE -O3 -std=c++20 -static)
+install(TARGETS rearrangement RUNTIME DESTINATION ${SKBUILD_SCRIPTS_DIR})

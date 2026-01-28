@@ -4,3 +4,7 @@ __pycache__
 /test.py
 /v1.0.11.tar.gz
 /rearr-1.0.11
+/build
+/src/main.cpp
+/src/headers
+/src/correct_micro_homology.awk
