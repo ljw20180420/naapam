@@ -1,6 +1,7 @@
 import os
 import pathlib
 import subprocess
+import sys
 
 import pandas as pd
 import pysam
@@ -119,8 +120,8 @@ def parse_R2(
     return barcode_CTG_target_prefix, R2_sgRNA, pam, target_suffix, C, R2_sgRNA_score
 
 
-def main(unique_file: os.PathLike):
-    unique_file = pathlib.Path(os.fspath(unique_file))
+def main():
+    unique_file = pathlib.Path(sys.argv[1])
     parse_file = (
         unique_file.parent.parent / "parse" / "nobar" / f"{unique_file.stem}.parse"
     )

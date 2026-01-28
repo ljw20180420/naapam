@@ -18,6 +18,9 @@ dependencies = [
     "statsmodels>=0.14.6",
 ]
 
+[project.scripts]
+naapam-parse = "naapam.parse:main"
+
 [tool.scikit-build]
 cmake.build-type = "Release"
 minimum-version = "build-system.requires"
