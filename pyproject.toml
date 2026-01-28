@@ -7,7 +7,14 @@ authors = [
     { name = "ljw", email = "ljw2017@sjtu.edu.cn" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "biopython>=1.86",
+    "pandas[feather]>=3.0.0",
+    "plotnine>=0.15.2",
+    "pysam>=0.23.3",
+    "pyyaml>=6.0.3",
+    "statsmodels>=0.14.6",
+]
 
 [project.scripts]
 naapam = "naapam:main"
