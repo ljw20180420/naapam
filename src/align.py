@@ -186,8 +186,8 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
             df_stat.groupby(name)["count"].sum().reset_index().plot.scatter(
                 x=name, y="count", logy=logy
             ).get_figure().savefig(summary_dir / f"{pathlib.Path(csv_file).stem}.pdf")
-        elif name.endswith("_length"):
-            bins = 150
+        elif name.endswith("_length") or name in ["count_full", "count_small"]:
+            bins = 150 if name.endswith("_length") else 300
             df_stat[name].clip(upper=bins).plot.hist(
                 bins=np.linspace(0, bins + 1, bins + 2),
                 weights=df_stat["count"],
@@ -236,10 +236,8 @@ def stat_control(root_dir: os.PathLike):
         save_dir = pathlib.Path(f"figures/align/stat_control/{chip}")
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
         stat(df=df_control, save_dir=save_dir)
-        draw(
-            save_dirs=[save_dir],
-            summary_dir=save_dir,
-        )
+        draw(save_dirs=[save_dir], summary_dir=save_dir)
+        del df_control
 
 
 def filter_nofunc_control(
