@@ -76,7 +76,7 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
 
 def stat_read(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/main/stat_read")
+    save_dir = pathlib.Path("figures/analyze/stat_read")
     os.makedirs(save_dir, exist_ok=True)
     df_algs = []
     for alg_file in os.listdir(root_dir / "align" / "correct"):
@@ -102,8 +102,8 @@ def collect_data(
     Only collect data. Do not apply any annotation. Only apply read-wise filter such as score.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "full", exist_ok=True)
-    os.makedirs(root_dir / "main" / "control" / "full", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "treat" / "full", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "control" / "full", exist_ok=True)
     df_algs = []
     for alg_file in root_dir / "align" / "correct":
         df_alg = utils.read_alg(root_dir / "align" / "correct" / alg_file)
@@ -140,17 +140,17 @@ def collect_data(
     df_alg = pd.concat(df_algs).assign(cas=lambda df: df["stem"].map(utils.infer_cas))
     df_alg.query("cas != 'control'").drop(columns="cas").reset_index(
         drop=True
-    ).to_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+    ).to_feather(root_dir / "analyze" / "treat" / "full" / "treat.feather")
     df_alg.query("cas == 'control'").drop(columns="cas").reset_index(
         drop=True
-    ).to_feather(root_dir / "main" / "control" / "full" / "control.feather")
+    ).to_feather(root_dir / "analyze" / "control" / "full" / "control.feather")
 
 
 def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
-    save_dir = pathlib.Path("figures/main/stat_mutant")
+    save_dir = pathlib.Path("figures/analyze/stat_mutant")
     os.makedirs(save_dir, exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "full" / "treat.feather")
 
     utils.up_del_size(df_treat).clip(upper=30).plot.hist(
         bins=np.linspace(0, 31, 32), weights=df_treat["count"]
@@ -189,9 +189,9 @@ def filter_mutant(
     Do not filter mutant because missing mutant are treated as count 0. Use a column legal to mark mutant passing the filter.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "filter" / "mutant", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "treat" / "filter" / "mutant", exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "main" / "treat" / "full" / "treat.feather")
+    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "full" / "treat.feather")
 
     df_treat = df_treat.assign(
         legal=(
@@ -203,16 +203,16 @@ def filter_mutant(
     )
 
     df_treat.to_feather(
-        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
     )
 
 
 def stat_ref(root_dir: os.PathLike, min_count_tot: int):
-    save_dir = pathlib.Path("figures/main/stat_ref")
+    save_dir = pathlib.Path("figures/analyze/stat_ref")
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
-        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
     )
 
     df_treat.groupby(["stem", "ref_id"])["count"].sum().clip(upper=300).plot.hist(
@@ -274,10 +274,10 @@ def filter_ref(
     Use positive mask because nan compare always return False.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "filter" / "ref", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "treat" / "filter" / "ref", exist_ok=True)
 
     df_treat = pd.read_feather(
-        root_dir / "main" / "treat" / "filter" / "mutant" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
     )
 
     mask = (
@@ -293,16 +293,16 @@ def filter_ref(
         )
 
     df_treat.loc[mask].reset_index(drop=True).to_feather(
-        root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
     )
 
 
 def kim_correct(
     root_dir: os.PathLike,
 ):
-    os.makedirs(root_dir / "main" / "treat" / "correct", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "treat" / "correct", exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "main" / "treat" / "merge" / "treat.feather")
+    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "merge" / "treat.feather")
     count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim = utils.kim(
         df_treat
     )
@@ -314,4 +314,4 @@ def kim_correct(
         freq_norm_kim=freq_norm_kim,
     )
 
-    df_treat.to_feather(root_dir / "main" / "treat" / "correct" / "treat.feather")
+    df_treat.to_feather(root_dir / "analyze" / "treat" / "correct" / "treat.feather")

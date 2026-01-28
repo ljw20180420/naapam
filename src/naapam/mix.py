@@ -8,9 +8,9 @@ from . import utils
 
 def duplicate_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "dup", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "treat" / "dup", exist_ok=True)
     df_treat = pd.read_feather(
-        root_dir / "main" / "treat" / "filter" / "ref" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
     )
     df_treat = df_treat.assign(
         chip=lambda df: df["stem"].map(utils.infer_chip),
@@ -25,15 +25,15 @@ def duplicate_treat(root_dir: os.PathLike):
         .explode("wt")
         .reset_index(drop=True)
         .assign(stem=lambda df: df["stem"] + "_" + df["wt"])
-        .to_feather(root_dir / "main" / "treat" / "dup" / "treat.feather")
+        .to_feather(root_dir / "anaylze" / "treat" / "dup" / "treat.feather")
     )
 
 
 def duplicate_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "control" / "dup", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "control" / "dup", exist_ok=True)
     df_control = pd.read_feather(
-        root_dir / "main" / "control" / "full" / "control.feather"
+        root_dir / "analyze" / "control" / "full" / "control.feather"
     )
 
     df_control = df_control.assign(
@@ -97,7 +97,7 @@ def duplicate_control(root_dir: os.PathLike):
         .reset_index(drop=True)
         .assign(stem=lambda df: df["stem"] + "_" + df["time"])
         .astype({"time": int})
-        .to_feather(root_dir / "main" / "control" / "dup" / "control.feather")
+        .to_feather(root_dir / "analyze" / "control" / "dup" / "control.feather")
     )
 
 
@@ -106,10 +106,10 @@ def merge(root_dir: os.PathLike):
     count_wt_ctl and count_tot_ctl must be calculated before left merge because information about control will loss after left merge.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "main" / "treat" / "merge", exist_ok=True)
-    df_treat = pd.read_feather(root_dir / "main" / "treat" / "dup" / "treat.feather")
+    os.makedirs(root_dir / "analyze" / "treat" / "merge", exist_ok=True)
+    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "dup" / "treat.feather")
     df_control = (
-        pd.read_feather(root_dir / "main" / "control" / "dup" / "treat.feather")
+        pd.read_feather(root_dir / "analyze" / "control" / "dup" / "treat.feather")
         .assign(
             count_wt_ctl=lambda df: utils.count_wt(df),
             count_tot_ctl=lambda df: df.groupby(["stem", "ref_id"])["count"].transform(
@@ -138,4 +138,4 @@ def merge(root_dir: os.PathLike):
         count_tot_ctl=lambda df: df["count_tot_ctl"].fillna(0),
     )
 
-    df_treat.to_feather(root_dir / "main" / "treat" / "merge" / "treat.feather")
+    df_treat.to_feather(root_dir / "analyze" / "treat" / "merge" / "treat.feather")

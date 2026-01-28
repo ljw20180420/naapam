@@ -138,7 +138,7 @@ def rev_comp(seq: str) -> str:
 
 
 #################################################
-# main
+# analyze
 #################################################
 def up_del_size(df: pd.DataFrame) -> pd.Series:
     up_del_size: pd.Series = np.maximum(df["cut1"] - df["ref_end1"], 0)

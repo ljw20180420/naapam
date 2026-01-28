@@ -39,11 +39,11 @@ grid_colors = [
 def mean_freq_over_up_del_size_on_tem(
     root_dir: os.PathLike,
 ):
-    save_dir = pathlib.Path("figures/main/mean_freq_over_up_del_size_on_tem")
+    save_dir = pathlib.Path("figures/analyze/mean_freq_over_up_del_size_on_tem")
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
-        root_dir / "main" / "treat" / "correct" / "treat.feather"
+        root_dir / "analyze" / "treat" / "correct" / "treat.feather"
     )
 
     for tem in range(1, 5):
