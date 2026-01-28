@@ -3,6 +3,8 @@ name = "naapam"
 version = "0.1.0"
 description = "Chip-based CRISPR analysis"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md"]
 authors = [
     { name = "ljw", email = "ljw2017@sjtu.edu.cn" }
 ]
@@ -15,9 +17,6 @@ dependencies = [
     "pyyaml>=6.0.3",
     "statsmodels>=0.14.6",
 ]
-
-[project.scripts]
-naapam = "naapam:main"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

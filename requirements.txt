@@ -1,6 +1,0 @@
-pandas[feather]
-statsmodels
-plotnine
-biopython
-pyyaml
-pysam
