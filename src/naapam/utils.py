@@ -359,8 +359,6 @@ def call_rearr(
                     "3<",
                     (tmpdir / "ref").as_posix(),
                     "|",
-                    "gawk",
-                    "-f",
                     "correct_micro_homology.awk",
                     "--",
                     (tmpdir / "ref").as_posix(),

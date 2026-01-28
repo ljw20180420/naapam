@@ -11,7 +11,7 @@ rearr() {
     rearrangement \
         < ${query} \
         3< ${ref} |
-    gawk -f correct_micro_homology.awk -- \
+    correct_micro_homology.awk -- \
         ${ref} \
         <(yes up | head -n${line_num}) \
         > ${align_file}
