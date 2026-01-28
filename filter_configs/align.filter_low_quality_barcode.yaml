@@ -1,4 +1,4 @@
-max_mutant_type_num: 40
+max_mutant_type_num: 10
 min_count_tot: 6
 min_freq_wt: 0.3
 max_second_rel_first: 0.1

@@ -1,6 +1,6 @@
 min_percentage: 0.05
-max_rank: 10
+max_rank: 5
 max_up_del_size: 6
 max_down_del_size: 3
 max_rand_ins_size: 6
-min_count: 0
+min_count: 1
