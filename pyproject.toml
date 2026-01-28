@@ -26,7 +26,19 @@ cmake.build-type = "Release"
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
 sdist.include = ["src"]
-sdist.exclude = [".venv", "build", "dist", "exponential_to_straight", "figures", ""]
+sdist.exclude = [
+    ".venv",
+    "build",
+    "dist",
+    "rearr-1.0.11",
+    "exponential_to_straight",
+    "figures",
+    "src/naapam/__pycache__",
+    "src/naapam/plasmids/__pycache__",
+    "src/naapam/filter_configs/__pycache__",
+    ".gitignore",
+    "download_rearr.sh"
+]
 
 [tool.uv]
 cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.{h,c,hpp,cpp}" }, { file = "CMakeLists.txt" }]
