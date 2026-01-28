@@ -18,10 +18,11 @@ rearr() {
 }
 
 query_ref() {
+    local root_dir=$1
     local query
     local chip
     local ref
-    for query in $(find "/home/ljw/sdb1/naapam/query/found" -name "*.query")
+    for query in $(find "${root_dir}/query/found" -name "*.query")
     do
         chip="$(
             basename "${query}" |
@@ -35,5 +36,6 @@ query_ref() {
 }
 
 export -f rearr
+root_dir=$1
 
-parallel -a <(query_ref) --jobs 24 rearr
+parallel -a <(query_ref ${root_dir}) --jobs 24 rearr
