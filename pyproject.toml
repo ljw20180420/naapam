@@ -33,6 +33,7 @@ sdist.exclude = [
     ".gitignore",
     "download_rearr.sh",
     "uv.lock",
+    "tag_push.sh"
 ]
 sdist.include = [
     "/src/headers",
