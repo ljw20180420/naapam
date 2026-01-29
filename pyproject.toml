@@ -1,6 +1,6 @@
 [project]
 name = "naapam"
-version = "0.1.8"
+version = "0.1.9"
 description = "Chip-based CRISPR analysis"
 readme = "README.md"
 license = "MIT"
@@ -38,7 +38,7 @@ sdist.exclude = [
     ".gitignore",
     "download_rearr.sh",
     "uv.lock",
-    "tag_push.sh"
+    "release.sh"
 ]
 sdist.include = [
     "/src/headers",
@@ -54,4 +54,4 @@ requires = ["scikit-build-core>=0.10"]
 build-backend = "scikit_build_core.build"
 
 [tool.cibuildwheel]
-before-all = "./download_rearr.sh"
+before-all = "bash download_rearr.sh"
