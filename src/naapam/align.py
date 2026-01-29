@@ -1,7 +1,8 @@
 import os
 import pathlib
 import subprocess
-from  importlib import resources
+from importlib import resources
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -336,7 +337,7 @@ def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
             plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
         else:
             plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
-        with resources.as_file(resources.files("naapam.plasmids") / plasmid_file) as pf:
+        with resources.as_file(resources.files(".plasmids") / plasmid_file) as pf:
             df_plasmid = pd.read_csv(pf, header=0)
         df_plasmid = df_plasmid.assign(
             ref2=lambda df: (

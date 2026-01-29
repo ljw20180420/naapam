@@ -9,7 +9,6 @@
 
 - [ ] Add api to specify plasmids files.
 - [ ] Add api to specify filter configs.
-- [ ] wrap executable by [project.scripts]
 
 # Dependencies
 

@@ -191,7 +191,7 @@ def build_barcode(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "barcode" / "index", exist_ok=True)
     with resources.as_file(
-        resources.files("naapam.plasmids")
+        resources.files(".plasmids")
         / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
     ) as pf:
         df_plasmid = pd.read_csv(pf, header=0)
@@ -352,7 +352,7 @@ def build_sgRNA(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "sgRNA" / "index", exist_ok=True)
     with resources.as_file(
-        resources.files("naapam.plasmids")
+        resources.files(".plasmids")
         / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
     ) as pf:
         df_plasmid = pd.read_csv(pf, header=0)
