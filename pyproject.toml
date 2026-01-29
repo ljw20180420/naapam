@@ -8,7 +8,7 @@ license-files = ["LICENSE.md"]
 authors = [
     { name = "ljw", email = "ljw2017@sjtu.edu.cn" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "biopython>=1.86",
     "pandas[feather]>=3.0.0",

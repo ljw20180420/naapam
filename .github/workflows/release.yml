@@ -24,8 +24,8 @@ jobs:
         run: ./download_rearr.sh
       - name: Install uv
         uses: astral-sh/setup-uv@v6
-      - name: Install Python 3.11
-        run: uv python install 3.11
+      - name: Install Python 3.13
+        run: uv python install 3.13
       - name: Build
         run: uv build
       - name: Publish
