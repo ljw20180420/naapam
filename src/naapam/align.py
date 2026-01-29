@@ -836,11 +836,12 @@ def demultiplex(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "query" / "found", exist_ok=True)
     os.makedirs(root_dir / "query" / "not_found", exist_ok=True)
-    save_dir = pathlib.Path(
-        f"figures/align/demultiplex/{pathlib.Path(treat_file).stem}"
-    )
-    os.makedirs(save_dir, exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "filter"):
+        save_dir = pathlib.Path(
+            f"figures/align/demultiplex/{pathlib.Path(treat_file).stem}"
+        )
+        os.makedirs(save_dir, exist_ok=True)
+
         chip = utils.infer_chip(treat_file)
         df_ref = pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
             ["barcode_id"]
@@ -874,10 +875,10 @@ def demultiplex(root_dir: os.PathLike):
 
         # Get query number/count distribution for each ref. Count of query with multiple refs are distributed to each ref evenly.
         df_query.groupby("ref_id").size().rename("number").to_csv(
-            save_dir / "query_number_per_ref.csv", index=False
+            save_dir / "query_number_per_ref.csv"
         )
         df_query.groupby("ref_id")["count_distri"].sum().rename("count").to_csv(
-            save_dir / "query_count_per_ref.csv", index=False
+            save_dir / "query_count_per_ref.csv"
         )
 
         df_query.query("ref_id == -1")[["query", "count"]].to_csv(
@@ -893,7 +894,7 @@ def demultiplex(root_dir: os.PathLike):
             index=False,
         )
 
-    summary_demultiplex(save_dir)
+    summary_demultiplex(save_dir="figures/align/demultiplex")
 
 
 def summary_demultiplex(save_dir: os.PathLike):
@@ -901,9 +902,8 @@ def summary_demultiplex(save_dir: os.PathLike):
     df_query_number_per_refs = []
     df_query_count_per_refs = []
     for stem in os.listdir(save_dir):
-        if not os.path.isdir(stem):
+        if not os.path.isdir(save_dir / stem):
             continue
-
         df_query_number_per_refs.append(
             pd.read_csv(save_dir / stem / "query_number_per_ref.csv", header=0).assign(
                 stem=stem
