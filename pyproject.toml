@@ -1,6 +1,6 @@
 [project]
 name = "naapam"
-version = "0.1.11"
+version = "0.1.12"
 description = "Chip-based CRISPR analysis"
 readme = "README.md"
 license = "MIT"
@@ -52,6 +52,3 @@ cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.{h,c,hpp,cpp}" }, 
 [build-system]
 requires = ["scikit-build-core>=0.10"]
 build-backend = "scikit_build_core.build"
-
-[tool.cibuildwheel]
-before-all = "bash download_rearr.sh"

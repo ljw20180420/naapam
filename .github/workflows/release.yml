@@ -17,8 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Install wget
-        run: sudo apt-get install --no-install-recommends --no-install-suggests -y wget
+      - name: Download rearr
+        run: bash download_rearr.sh
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
       - name: Build SDist
