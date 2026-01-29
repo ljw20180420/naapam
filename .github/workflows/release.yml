@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      - name: Install wget
+        run: apt-get install --no-install-recommends --no-install-suggests -y wget
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.1
       - name: Build SDist
