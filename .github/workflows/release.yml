@@ -1,10 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      # Publish on any tag starting with a `v`, e.g., v1.2.3
-      - v*
+  release:
+    types: [created]
 
 jobs:
   pypi:
@@ -16,19 +14,14 @@ jobs:
       name: pypi
     permissions:
       id-token: write
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Download rearr
-        run: ./download_rearr.sh
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      - name: Install Python 3.13
-        run: uv python install 3.13
-      - name: Build
-        run: uv build
-      - name: Publish
-        run: uv publish
-      - name: test install and import
-        run: uv run --with naapam --refresh-package naapam --no-project -- python -c "import naapam"
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+      - name: Build SDist
+        run: pipx run build --sdist
+      - name: Move wheel to dist
+        run: mv wheelhouse/*.whl -t dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      
