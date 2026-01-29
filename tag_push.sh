@@ -1,5 +1,5 @@
 #!/bin/bash
 
-uv version --dump patch
+uv version --bump patch
 git tag -a $(uv version) -m $(uv version)
 git push --tags
