@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      - name: Download rearr
+        run: ./download_rearr.sh
       - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Install Python 3.11
@@ -28,3 +30,5 @@ jobs:
         run: uv build
       - name: Publish
         run: uv publish
+      - name: test install and import
+        run: uv run --with naapam --refresh-package naapam --no-project -- python -c "import naapam"
