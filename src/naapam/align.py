@@ -862,7 +862,13 @@ def demultiplex(root_dir: os.PathLike):
                 + df["C"]
                 + df["R2_scaffold_prefix"]
                 + df["R2_tail"]
-            )[["barcode_id", "query", "count"]]
+            )
+            .groupby("query")
+            .agg(
+                barcode_id=pd.NamedAgg(column="barcode_id", aggfunc="first"),
+                count=pd.NamedAgg(column="count", aggfunc="sum"),
+            )
+            .reset_index()
             .merge(
                 right=df_ref[["barcode_id", "ref_id"]],
                 how="left",

@@ -23,21 +23,25 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
         df_alg["index"] = df_query.groupby("query").transform("ngroup")
 
         chip = utils.infer_chip(alg_file)
-        df_ref = pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
-            ["count"]
-        ].reset_index(names="ref_id")
+        df_ref = pd.read_feather(
+            root_dir / "control" / "hq_mut" / f"{chip}.feather"
+        ).reset_index(names="ref_id")
         df_alg = df_alg.merge(
             right=df_ref[["ref_id", "count"]].rename(columns={"count": "count_ref"}),
             how="left",
             on=["ref_id"],
             validate="many_to_one",
         ).assign(
-            count_distri=lambda df: df["count"]
-            * df.groupby("index")["score"].transform(
-                lambda score, temperature=temperature: pd.Series(
-                    special.softmax(score / temperature), name=score.name
+            weight=lambda df: (
+                df["count_ref"]
+                * df.groupby("index")["score"].transform(
+                    lambda score, temperature=temperature: special.softmax(
+                        score / temperature
+                    )
                 )
-            )
+            ),
+            count_distri=lambda df: df["count"]
+            * df.groupby("index")["weight"].transform(lambda se: se / se.sum()),
         )
 
         with open(root_dir / "align" / "correct" / alg_file, "w") as fd:
@@ -150,7 +154,9 @@ def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
     save_dir = pathlib.Path("figures/analyze/stat_mutant")
     os.makedirs(save_dir, exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "full" / "treat.feather")
+    df_treat = pd.read_feather(
+        root_dir / "analyze" / "treat" / "full" / "treat.feather"
+    )
 
     utils.up_del_size(df_treat).clip(upper=30).plot.hist(
         bins=np.linspace(0, 31, 32), weights=df_treat["count"]
@@ -191,7 +197,9 @@ def filter_mutant(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "mutant", exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "full" / "treat.feather")
+    df_treat = pd.read_feather(
+        root_dir / "analyze" / "treat" / "full" / "treat.feather"
+    )
 
     df_treat = df_treat.assign(
         legal=(
@@ -302,7 +310,9 @@ def kim_correct(
 ):
     os.makedirs(root_dir / "analyze" / "treat" / "correct", exist_ok=True)
 
-    df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "merge" / "treat.feather")
+    df_treat = pd.read_feather(
+        root_dir / "analyze" / "treat" / "merge" / "treat.feather"
+    )
     count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim = utils.kim(
         df_treat
     )
