@@ -23,6 +23,11 @@ naapam-parse = "naapam.parse:main"
 naapam-parse-parallel = "naapam.scripts:parse"
 naapam-align-parallel = "naapam.scripts:align"
 
+[project.optional-dependencies]
+dev = [
+    "cibuildwheel>=3.3.1",
+]
+
 [tool.scikit-build]
 cmake.build-type = "Release"
 minimum-version = "build-system.requires"
@@ -47,3 +52,6 @@ cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.{h,c,hpp,cpp}" }, 
 [build-system]
 requires = ["scikit-build-core>=0.10"]
 build-backend = "scikit_build_core.build"
+
+[tool.cibuildwheel]
+before-all = "./download_rearr.sh"
