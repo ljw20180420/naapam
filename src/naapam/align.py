@@ -329,14 +329,17 @@ def filter_nofunc_control(
         df_control.to_feather(root_dir / "control" / "func" / f"{chip}.feather")
 
 
-def cluster_func_control_by_mutant(root_dir: os.PathLike, ext: int):
+def cluster_func_control_by_mutant(
+    root_dir: os.PathLike, ext: int, plasmid_file: os.PathLike | None
+):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "cluster", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        if chip in ["a1", "a2", "a3"]:
-            plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
-        else:
-            plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
+        if plasmid_file is None:
+            if chip in ["a1", "a2", "a3"]:
+                plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+            else:
+                plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
         with resources.as_file(resources.files(".plasmids") / plasmid_file) as pf:
             df_plasmid = pd.read_csv(pf, header=0)
         df_plasmid = df_plasmid.assign(

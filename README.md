@@ -7,9 +7,6 @@
 
 # Package
 
-- [ ] Add api to specify plasmids files.
-- [ ] Add api to specify filter configs.
-
 # Dependencies
 
 - bowtie2

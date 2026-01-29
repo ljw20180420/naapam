@@ -187,14 +187,18 @@ def main():
             )
 
 
-def build_barcode(root_dir: os.PathLike):
+def build_barcode(root_dir: os.PathLike, plasmid_file: os.PathLike | None):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "barcode" / "index", exist_ok=True)
-    with resources.as_file(
-        resources.files(".plasmids")
-        / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
-    ) as pf:
-        df_plasmid = pd.read_csv(pf, header=0)
+    if plasmid_file is None:
+        with resources.as_file(
+            resources.files(".plasmids")
+            / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+        ) as pf:
+            df_plasmid = pd.read_csv(pf, header=0)
+    else:
+        df_plasmid = pd.read_csv(plasmid_file, header=0)
+
     with open(root_dir / "barcode" / "index" / "barcode.fa", "w") as fd:
         for i, barcode in enumerate(df_plasmid["Barcode2"]):
             barcode = str(Seq.Seq(barcode).reverse_complement())
@@ -348,14 +352,18 @@ def parse_barcode(root_dir: os.PathLike):
         )
 
 
-def build_sgRNA(root_dir: os.PathLike):
+def build_sgRNA(root_dir: os.PathLike, plasmid_file: os.PathLike | None):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "sgRNA" / "index", exist_ok=True)
-    with resources.as_file(
-        resources.files(".plasmids")
-        / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
-    ) as pf:
-        df_plasmid = pd.read_csv(pf, header=0)
+    if plasmid_file is None:
+        with resources.as_file(
+            resources.files(".plasmids")
+            / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+        ) as pf:
+            df_plasmid = pd.read_csv(pf, header=0)
+    else:
+        df_plasmid = pd.read_csv(plasmid_file, header=0)
+
     with open(root_dir / "sgRNA" / "index" / "sgRNA.fa", "w") as fd:
         for i, sgRNA in enumerate(df_plasmid["sgRNA"]):
             fd.write(f">b{i}\n{sgRNA}\n")
