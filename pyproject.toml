@@ -20,8 +20,8 @@ dependencies = [
 
 [project.scripts]
 naapam-parse = "naapam.parse:main"
-naapam-parse-parallel = "naapam.scripts.wrapper:parse"
-naapam-align-parallel = "naapam.scripts.wrapper:align"
+naapam-parse-parallel = "naapam.scripts:parse"
+naapam-align-parallel = "naapam.scripts:align"
 
 [tool.scikit-build]
 cmake.build-type = "Release"

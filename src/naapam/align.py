@@ -340,7 +340,9 @@ def cluster_func_control_by_mutant(
                 plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
             else:
                 plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
-        with resources.as_file(resources.files(".plasmids") / plasmid_file) as pf:
+        with resources.as_file(
+            resources.files().parent / "plasmids" / plasmid_file
+        ) as pf:
             df_plasmid = pd.read_csv(pf, header=0)
         df_plasmid = df_plasmid.assign(
             ref2=lambda df: (
