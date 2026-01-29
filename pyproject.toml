@@ -28,6 +28,7 @@ cmake.build-type = "Release"
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
 sdist.exclude = [
+    ".github",
     "exponential_to_straight",
     ".gitignore",
     "download_rearr.sh",
