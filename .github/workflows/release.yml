@@ -4,6 +4,10 @@ on:
   release:
     types: [created]
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   pypi:
     name: Publish to PyPI
