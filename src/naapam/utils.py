@@ -295,7 +295,30 @@ def pivot_legal(df: pd.DataFrame, column: str) -> pd.DataFrame:
 ###########################################
 
 
-def read_alg(alg_file: os.PathLike):
+def read_alg(alg_file: os.PathLike, correct: bool):
+    names = [
+        "index",
+        "count",
+        "score",
+        "ref_id",
+        "updangle",
+        "ref_start1",
+        "query_start1",
+        "ref_end1",
+        "query_end1",
+        "random_insertion",
+        "ref_start2",
+        "query_start2",
+        "ref_end2",
+        "query_end2",
+        "downdangle",
+        "cut1",
+        "cut2",
+    ]
+    if correct:
+        names += ["count_ref", "count_distri"]
+    names += ["ref", "query"]
+
     with subprocess.Popen(
         args=["sed", "-e", r"N;N;s/\n/\t/g", os.fspath(alg_file)],
         stdout=subprocess.PIPE,
@@ -303,27 +326,7 @@ def read_alg(alg_file: os.PathLike):
         df_alg = pd.read_csv(
             process.stdout,
             sep="\t",
-            names=[
-                "index",
-                "count",
-                "score",
-                "ref_id",
-                "updangle",
-                "ref_start1",
-                "query_start1",
-                "ref_end1",
-                "query_end1",
-                "random_insertion",
-                "ref_start2",
-                "query_start2",
-                "ref_end2",
-                "query_end2",
-                "downdangle",
-                "cut1",
-                "cut2",
-                "ref",
-                "query",
-            ],
+            names=names,
             keep_default_na=False,
         )
 
@@ -340,9 +343,11 @@ def call_rearr(
 ) -> pd.DataFrame:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(os.fspath(tmpdir))
-        with open(tmpdir / "ref", "w") as fd_ref, open(
-            tmpdir / "query", "w"
-        ) as fd_query, open(tmpdir / "correct", "w") as fd_correct:
+        with (
+            open(tmpdir / "ref", "w") as fd_ref,
+            open(tmpdir / "query", "w") as fd_query,
+            open(tmpdir / "correct", "w") as fd_correct,
+        ):
             for ref_id, (ref1, ref2, cut, ext, query, count) in enumerate(
                 zip(ref1s, ref2s, cuts, exts, queries, counts)
             ):
@@ -370,7 +375,7 @@ def call_rearr(
             shell=True,
         )
 
-        df_alg = read_alg(tmpdir / "alg")
+        df_alg = read_alg(tmpdir / "alg", correct=False)
 
     return df_alg
 
