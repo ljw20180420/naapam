@@ -114,11 +114,8 @@ def collect_data(
     os.makedirs(root_dir / "analyze" / "treat" / "full", exist_ok=True)
     os.makedirs(root_dir / "analyze" / "control" / "full", exist_ok=True)
     df_algs = []
-    for alg_file in root_dir / "align" / "correct":
+    for alg_file in os.listdir(root_dir / "align" / "correct"):
         df_alg = utils.read_alg(root_dir / "align" / "correct" / alg_file, correct=True)
-        if df_alg.shape[0] == 0:
-            continue
-
         df_alg = (
             df_alg.query("score >= @min_score")
             .groupby(
@@ -156,6 +153,7 @@ def collect_data(
 
 
 def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
+    root_dir = pathlib.Path(os.fspath(root_dir))
     save_dir = pathlib.Path("figures/analyze/stat_mutant")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -181,7 +179,7 @@ def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
     df_treat.assign(
         count_tot=lambda df: df.groupby(["stem", "ref_id"])["count"].transform("sum"),
         freq_mutant=lambda df: utils.freq_mutant(df),
-    ).query("count_tot <= @min_count_tot")["freq_mutant"].plot.hist(
+    ).query("count_tot >= @min_count_tot")["freq_mutant"].plot.hist(
         bins=100
     ).get_figure().savefig(
         save_dir / "freq_mutant.pdf"
