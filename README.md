@@ -7,8 +7,7 @@
 
 # Package
 
-- [ ] format jupyter-notebook
-- [ ] github action
+- [ ] 为了测试，在naapam_test中进行后续计算
 
 # Dependencies
 
