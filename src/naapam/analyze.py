@@ -237,50 +237,51 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int):
     ].first().plot.hist(bins=100).get_figure().savefig(save_dir / "freq_nowt.pdf")
     plt.close("all")
 
+    df_treat = df_treat.assign(
+        count_tot=lambda df: df.groupby(["stem", "ref_id"])["count"].transform("sum")
+    )
     for tem in range(1, 5):
-        df_treat_freq = (
-            df_treat.assign(
-                **{
-                    "count_tot": lambda df: df.groupby(["stem", "ref_id"])[
-                        "count"
-                    ].transform("sum"),
-                    f"freq_tem{tem}": lambda df: utils.freq_temN(df, tem),
-                    f"freq_tem{tem}_blunt": lambda df: utils.freq_temN_blunt(df, tem),
-                    f"freq_tem{tem}_dummy_rel_blunt": lambda df: utils.freq_temN_dummy_rel_blunt(
-                        df, tem
-                    ),
-                }
-            )
-            .query("count_tot >= @min_count_tot")[
-                [
-                    "stem",
-                    "ref_id",
-                    f"freq_tem{tem}",
-                    f"freq_tem{tem}_blunt",
-                    f"freq_tem{tem}_dummy_rel_blunt",
-                ]
-            ]
-            .drop_duplicates()
+        df_treat_tem = df_treat.assign(
+            count_blunt=lambda df: utils.count_tem_dele(df, tem, 0),
+            freq_blunt=lambda df: df["count_blunt"] / (df["count_tot"] + 1e-6),
         )
-
-        for column in [
-            f"freq_tem{tem}",
-            f"freq_tem{tem}_blunt",
-            f"freq_tem{tem}_dummy_rel_blunt",
-        ]:
-            df_treat_freq[column].plot.hist(bins=300, logy=True).get_figure().savefig(
-                save_dir / f"{column}.pdf"
+        for dele in range(1, 5):
+            df_treat_dele = (
+                df_treat_tem.assign(
+                    count_dele=lambda df: utils.count_tem_dele(df, tem, dele),
+                    freq_dele=lambda df: df["count_dele"] / (df["count_tot"] + 1e-6),
+                    freq_dele_rel_blunt=lambda df: df["count_dele"]
+                    / (df["count_blunt"] + 1e-6),
+                )
+                .query("count_tot >= @min_count_tot")
+                .groupby(["stem", "ref_id"])
+                .agg(
+                    freq_blunt=pd.NamedAgg(column="freq_blunt", aggfunc="first"),
+                    freq_dele=pd.NamedAgg(column="freq_dele", aggfunc="first"),
+                    freq_dele_rel_blunt=pd.NamedAgg(
+                        column="freq_dele_rel_blunt", aggfunc="first"
+                    ),
+                )
             )
-            plt.close("all")
+
+            for column in ["freq_blunt", "freq_dele", "freq_dele_rel_blunt"]:
+                if column == "freq_blunt":
+                    name = f"freq_blunt_tem{tem}"
+                elif column == "freq_dele":
+                    name = f"freq_dele{dele}_tem{tem}"
+                elif column == "freq_dele_rel_blunt":
+                    name = f"freq_dele{dele}_tem{tem}_rel_blunt"
+                df_treat_dele[column].plot.hist(
+                    bins=300, logy=True
+                ).get_figure().savefig(save_dir / f"{name}.pdf")
+                plt.close("all")
 
 
 def filter_ref(
     root_dir: os.PathLike,
     min_count_tot: int,
     max_freq_nowt: float,
-    max_freq_temN: dict[int, float],
-    max_freq_temN_blunt: dict[int, float],
-    max_freq_temN_dummy_rel_blunt: dict[int, float],
+    max_freq_deleM_temN_rel_blunt: dict[int, dict[int, float]],
 ):
     """
     Use positive mask because nan compare always return False.
@@ -292,17 +293,16 @@ def filter_ref(
         root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
     )
 
-    mask = (
-        df_treat.groupby(["stem", "ref_id"])["count"].transform("sum") >= min_count_tot
-    )
+    count_tot = df_treat.groupby(["stem", "ref_id"])["count"].transform("sum")
+    mask = count_tot >= min_count_tot
     mask = mask & (utils.freq_nowt(df_treat) <= max_freq_nowt)
     for tem in range(1, 5):
-        mask = mask & (utils.freq_temN(df_treat, tem) <= max_freq_temN[tem])
-        mask = mask & (utils.freq_temN_blunt(df_treat, tem) <= max_freq_temN_blunt[tem])
-        mask = mask & (
-            utils.freq_temN_dummy_rel_blunt(df_treat, tem)
-            <= max_freq_temN_dummy_rel_blunt[tem]
-        )
+        count_blunt = utils.count_tem_dele(df_treat, tem, 0)
+        for dele in range(1, 5):
+            mask = mask & (
+                utils.count_tem_dele(df_treat, tem, dele)
+                <= count_blunt * max_freq_deleM_temN_rel_blunt[dele][tem]
+            )
 
     df_treat.loc[mask].reset_index(drop=True).to_feather(
         root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
@@ -312,20 +312,18 @@ def filter_ref(
 def kim_correct(
     root_dir: os.PathLike,
 ):
+    root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "correct", exist_ok=True)
 
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "merge" / "treat.feather"
     )
-    count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim = utils.kim(
-        df_treat
-    )
+    count_kim, count_tot_kim, freq_mut_kim, freq_kim = utils.kim(df_treat)
     df_treat = df_treat.assign(
         count_kim=count_kim,
-        count_wt_kim=count_wt_kim,
         count_tot_kim=count_tot_kim,
+        freq_mut_kim=freq_mut_kim,
         freq_kim=freq_kim,
-        freq_norm_kim=freq_norm_kim,
     )
 
     df_treat.to_feather(root_dir / "analyze" / "treat" / "correct" / "treat.feather")

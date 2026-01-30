@@ -39,14 +39,15 @@ grid_colors = [
 def mean_freq_over_up_del_size_on_tem(
     root_dir: os.PathLike,
 ):
-    save_dir = pathlib.Path("figures/analyze/mean_freq_over_up_del_size_on_tem")
-    os.makedirs(save_dir, exist_ok=True)
-
+    root_dir = pathlib.Path(os.fspath(root_dir))
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "correct" / "treat.feather"
     )
+    save_dir = pathlib.Path("figures/analyze/mean_freq_over_up_del_size_on_tem")
 
     for tem in range(1, 5):
+        os.makedirs(save_dir / str(tem), exist_ok=True)
+
         df_tem = (
             df_treat.query(
                 """
@@ -61,7 +62,7 @@ def mean_freq_over_up_del_size_on_tem(
         )
 
         df_value = (
-            utils.pivot_value(df=df_tem, value="freq_norm_kim", column="up_del_size")
+            utils.pivot_value(df=df_tem, value="freq_kim", column="up_del_size")
             .assign(cas=lambda df: df["stem"].map(utils.infer_cas))
             .drop(columns=["stem", "ref_id"])
             .groupby("cas")
@@ -83,12 +84,14 @@ def mean_freq_over_up_del_size_on_tem(
                 id_vars="cas",
                 value_vars=value_vars,
                 var_name="up_del_size",
-                value_name="freq_norm_kim",
+                value_name="freq_kim",
             )
         )
 
         (
-            ggplot(df_mean, aes(x="up_del_size", y="freq_norm_kim", color="cas"))
+            ggplot(
+                df_mean, aes(x="up_del_size", y="freq_kim", group="cas", color="cas")
+            )
             + geom_line()
             + scale_color_manual(values=grid_colors)
-        ).save(save_dir / str(tem) / "freq_norm_kim.pdf")
+        ).save(save_dir / str(tem) / "freq_kim.pdf")

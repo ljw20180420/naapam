@@ -109,7 +109,7 @@ def merge(root_dir: os.PathLike):
     os.makedirs(root_dir / "analyze" / "treat" / "merge", exist_ok=True)
     df_treat = pd.read_feather(root_dir / "analyze" / "treat" / "dup" / "treat.feather")
     df_control = (
-        pd.read_feather(root_dir / "analyze" / "control" / "dup" / "treat.feather")
+        pd.read_feather(root_dir / "analyze" / "control" / "dup" / "control.feather")
         .assign(
             count_wt_ctl=lambda df: utils.count_wt(df),
             count_tot_ctl=lambda df: df.groupby(["stem", "ref_id"])["count"].transform(
@@ -118,6 +118,7 @@ def merge(root_dir: os.PathLike):
         )
         .rename(columns={"count": "count_ctl"})
     )
+
     on = [
         "chip",
         "time",

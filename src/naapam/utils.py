@@ -191,13 +191,13 @@ def freq_nowt(df: pd.DataFrame) -> pd.Series:
     return freq_nowt
 
 
-def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
+def count_tem_dele(df: pd.DataFrame, tem: int, dele: int) -> pd.Series:
     return (
         df[["stem", "ref_id"]]
         .merge(
             right=df.query(
                 """
-                    ref_end1 + @tem + 1 == cut1 and \
+                    ref_end1 + @dele == cut1 and \
                     ref_start2 + @tem == cut2 and \
                     random_insertion == ""
                 """
@@ -210,56 +210,25 @@ def count_temN(df: pd.DataFrame, tem: int) -> pd.Series:
     )
 
 
-def count_temN_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
-    return (
-        df[["stem", "ref_id"]]
-        .merge(
-            right=df.query(
-                'ref_end1 == cut1 and ref_start2 + @tem == cut2 and random_insertion == ""'
-            )[["stem", "ref_id", "count"]],
-            how="left",
-            on=["stem", "ref_id"],
-            validate="many_to_one",
-        )["count"]
-        .fillna(0)
-    )
-
-
-def freq_temN(df: pd.DataFrame, tem: int) -> pd.Series:
-    freq_temN = count_temN(df, tem) / df.groupby(["stem", "ref_id"])["count"].transform(
-        "sum"
-    )
-    return freq_temN
-
-
-def freq_temN_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
-    freq_temN_blunt = count_temN_blunt(df, tem) / df.groupby(["stem", "ref_id"])[
-        "count"
-    ].transform("sum")
-    return freq_temN_blunt
-
-
-def freq_temN_dummy_rel_blunt(df: pd.DataFrame, tem: int) -> pd.Series:
-    freq_temN_dummy_rel_blunt = count_temN(df, tem) / (count_temN_blunt(df, tem) + 1e-6)
-    return freq_temN_dummy_rel_blunt
-
-
 def kim(df: pd.DataFrame) -> tuple[pd.Series]:
     count_tot = df.groupby(["stem", "ref_id"])["count"].transform("sum")
     count_kim = np.maximum(
         0, df["count"] - count_tot * (df["count_ctl"] / (df["count_tot_ctl"] + 1e-6))
     )
     count_kim[is_wt(df)] = float("nan")
+    count_kim_sum = (
+        df.assign(count_kim=count_kim)
+        .groupby(["stem", "ref_id"])["count_kim"]
+        .transform("sum")
+    )
     count_tot_kim = count_tot * (df["count_wt_ctl"] / (df["count_tot_ctl"] + 1e-6))
-    count_wt_kim = count_tot_kim - df.assign(count_kim=count_kim).groupby(
-        ["stem", "ref_id"]
-    )["count_kim"].transform("sum")
-    count_kim[is_wt(df)] = count_wt_kim[is_wt(df)]
-    freq_kim = count_kim / (count_tot_kim + 1e-6)
-    freq_norm_kim = count_kim / (count_tot_kim + 1e-6 - count_wt_kim)
-    freq_norm_kim[is_wt(df)] = float("nan")
+    freq_mut_kim = np.minimum(
+        1.0,
+        count_kim_sum / (count_tot_kim + 1e-6),
+    )
+    freq_kim = count_kim / (count_kim_sum + 1e-6)
 
-    return count_kim, count_wt_kim, count_tot_kim, freq_kim, freq_norm_kim
+    return count_kim, count_tot_kim, freq_mut_kim, freq_kim
 
 
 def pivot_value(df: pd.DataFrame, value: str, column: str) -> pd.DataFrame:
@@ -432,8 +401,6 @@ def infer_cut(row: pd.Series, ext: int) -> pd.Series:
     assert len(ref_correct) - cut_correct >= ext, "ref2 too short"
     ref1_correct = ref_correct[: cut_correct + ext]
     ref2_correct = ref_correct[cut_correct - ext :]
-
-    breakpoint()
 
     return pd.Series(
         {
