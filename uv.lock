@@ -376,7 +376,7 @@ dependencies = [
     { name = "statsmodels" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "cibuildwheel" },
 ]
@@ -384,14 +384,15 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "biopython", specifier = ">=1.86" },
-    { name = "cibuildwheel", marker = "extra == 'dev'", specifier = ">=3.3.1" },
     { name = "pandas", extras = ["feather"], specifier = ">=3.0.0" },
     { name = "plotnine", specifier = ">=0.15.2" },
     { name = "pysam", specifier = ">=0.23.3" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "statsmodels", specifier = ">=0.14.6" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "cibuildwheel", specifier = ">=3.3.1" }]
 
 [[package]]
 name = "numpy"
