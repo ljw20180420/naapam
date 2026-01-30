@@ -45,32 +45,41 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
         )
 
         df_alg = df_alg.astype(str)
-        df_alg["index"].str.cat(
-            df_alg[
-                [
-                    "count",
-                    "score",
-                    "ref_id",
-                    "updangle",
-                    "ref_start1",
-                    "query_start1",
-                    "ref_end1",
-                    "query_end1",
-                    "random_insertion",
-                    "ref_start2",
-                    "query_start2",
-                    "ref_end2",
-                    "query_end2",
-                    "downdangle",
-                    "cut1",
-                    "cut2",
-                    "count_ref",
-                    "count_distri",
-                ]
-            ],
-            sep="\t",
-        ).str.cat(df_alg[["ref", "query"]], sep="\n").to_frame().to_csv(
-            root_dir / "align" / "correct" / alg_file, header=False, index=False
+        df_output = pd.DataFrame(
+            {
+                "meta": df_alg["index"].str.cat(
+                    df_alg[
+                        [
+                            "count",
+                            "score",
+                            "ref_id",
+                            "updangle",
+                            "ref_start1",
+                            "query_start1",
+                            "ref_end1",
+                            "query_end1",
+                            "random_insertion",
+                            "ref_start2",
+                            "query_start2",
+                            "ref_end2",
+                            "query_end2",
+                            "downdangle",
+                            "cut1",
+                            "cut2",
+                            "count_ref",
+                            "count_distri",
+                        ]
+                    ],
+                    sep="\t",
+                ),
+                "ref": df_alg["ref"],
+                "query": df_alg["query"],
+            },
+        )
+        df_output.stack().to_csv(
+            root_dir / "align" / "correct" / alg_file,
+            header=False,
+            index=False,
         )
 
 
