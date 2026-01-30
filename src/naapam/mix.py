@@ -25,7 +25,7 @@ def duplicate_treat(root_dir: os.PathLike):
         .explode("wt")
         .reset_index(drop=True)
         .assign(stem=lambda df: df["stem"] + "_" + df["wt"])
-        .to_feather(root_dir / "anaylze" / "treat" / "dup" / "treat.feather")
+        .to_feather(root_dir / "analyze" / "treat" / "dup" / "treat.feather")
     )
 
 

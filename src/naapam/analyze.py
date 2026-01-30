@@ -219,6 +219,7 @@ def filter_mutant(
 
 
 def stat_ref(root_dir: os.PathLike, min_count_tot: int):
+    root_dir = pathlib.Path(os.fspath(root_dir))
     save_dir = pathlib.Path("figures/analyze/stat_ref")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -267,7 +268,7 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int):
             f"freq_tem{tem}_blunt",
             f"freq_tem{tem}_dummy_rel_blunt",
         ]:
-            df_treat_freq[column].plot.hist(bins=100).get_figure().savefig(
+            df_treat_freq[column].plot.hist(bins=300, logy=True).get_figure().savefig(
                 save_dir / f"{column}.pdf"
             )
             plt.close("all")
