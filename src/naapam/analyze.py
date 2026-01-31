@@ -218,7 +218,7 @@ def filter_mutant(
     )
 
 
-def stat_ref(root_dir: os.PathLike, min_count_tot: int):
+def stat_ref(root_dir: os.PathLike, min_count_tot: int, max_up_del_size: int):
     root_dir = pathlib.Path(os.fspath(root_dir))
     save_dir = pathlib.Path("figures/analyze/stat_ref")
     os.makedirs(save_dir, exist_ok=True)
@@ -245,7 +245,7 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int):
             count_blunt=lambda df: utils.count_tem_dele(df, tem, 0),
             freq_blunt=lambda df: df["count_blunt"] / (df["count_tot"] + 1e-6),
         )
-        for dele in range(1, 5):
+        for dele in range(1, max_up_del_size + 1):
             df_treat_dele = (
                 df_treat_tem.assign(
                     count_dele=lambda df: utils.count_tem_dele(df, tem, dele),
@@ -282,6 +282,7 @@ def filter_ref(
     min_count_tot: int,
     max_freq_nowt: float,
     max_freq_deleM_temN_rel_blunt: dict[int, dict[int, float]],
+    max_up_del_size: int,
 ):
     """
     Use positive mask because nan compare always return False.
@@ -298,7 +299,7 @@ def filter_ref(
     mask = mask & (utils.freq_nowt(df_treat) <= max_freq_nowt)
     for tem in range(1, 5):
         count_blunt = utils.count_tem_dele(df_treat, tem, 0)
-        for dele in range(1, 5):
+        for dele in range(1, max_up_del_size + 1):
             mask = mask & (
                 utils.count_tem_dele(df_treat, tem, dele)
                 <= count_blunt * max_freq_deleM_temN_rel_blunt[dele][tem]
