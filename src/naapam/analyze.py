@@ -4,6 +4,9 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import patsy
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 from scipy import special
 
 from . import utils
@@ -106,7 +109,7 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
 
 def stat_read(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/analyze/stat_read")
+    save_dir = root_dir / "figures" / "analyze" / "stat_read"
     os.makedirs(save_dir, exist_ok=True)
     df_algs = []
     for alg_file in os.listdir(root_dir / "align" / "correct"):
@@ -221,7 +224,7 @@ def collect_data(
 
 def stat_ref(root_dir: os.PathLike, min_count_tot: int, max_up_del_size: int):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/analyze/stat_ref")
+    save_dir = root_dir / "figures" / "analyze" / "stat_ref"
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
@@ -283,22 +286,88 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int, max_up_del_size: int):
                 plt.close("all")
 
 
+def fit_ref(root_dir: os.PathLike, max_up_del_size: int):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "fit", exist_ok=True)
+    save_dir = root_dir / "figures" / "analyze" / "fit_ref"
+    os.makedirs(save_dir, exist_ok=True)
+
+    df_treat = pd.read_feather(
+        root_dir / "analyze" / "treat" / "full" / "treat.feather"
+    )
+    df_treat = (
+        df_treat.assign(
+            up_del_size=lambda df: utils.up_del_size(df),
+        )
+        .query("ref_end1 <= cut1 and up_del_size <= @max_up_del_size")
+        .groupby(["up_del_size"])["count"]
+        .sum()
+        .reset_index()
+        .assign(
+            freq_rel_blunt=lambda df: df["count"]
+            / df.loc[df["up_del_size"] == 0, "count"].item()
+        )
+    )
+
+    log_freq_rel_blunt, const_up_del_size = patsy.dmatrices(
+        "np.log(freq_rel_blunt) ~ up_del_size", data=df_treat, return_type="dataframe"
+    )
+    result = sm.OLS(
+        endog=log_freq_rel_blunt,
+        exog=const_up_del_size,
+    ).fit()
+    prediction = result.get_prediction(const_up_del_size)
+    summary_frame = prediction.summary_frame(alpha=0.05)
+    summary_frame = summary_frame.assign(
+        up_del_size=const_up_del_size["up_del_size"],
+    )
+    summary_frame.to_csv(root_dir / "fit" / "summary_frame.csv", index=False)
+
+    plt.scatter(x=df_treat["up_del_size"], y=np.log(df_treat["freq_rel_blunt"]))
+    plt.plot(
+        summary_frame["up_del_size"],
+        summary_frame["mean"],
+        color="red",
+        label="fitted freq_rel_blunt",
+    )
+    plt.fill_between(
+        summary_frame["up_del_size"],
+        summary_frame["mean_ci_lower"],
+        summary_frame["mean_ci_upper"],
+        color="red",
+        alpha=0.3,
+        label="95% CI",
+    )
+    plt.fill_between(
+        summary_frame["up_del_size"],
+        summary_frame["obs_ci_lower"],
+        summary_frame["obs_ci_upper"],
+        color="blue",
+        alpha=0.2,
+        label="95% PI",
+    )
+    plt.savefig(save_dir / "ci.pdf")
+    plt.close("all")
+
+
 def filter_ref(
     root_dir: os.PathLike,
     min_count_tot: int,
     max_up_del_size: int,
     max_freq_nowt: float,
-    max_freq_deleM_temN_rel_blunt: dict[int, dict[int, float]],
 ):
     """
     Use positive mask because nan compare always return False.
     """
+    breakpoint()
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "ref", exist_ok=True)
 
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "full" / "treat.feather"
     )
+    summary_frame = pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)
+    outlier_ratio = np.exp(summary_frame["obs_ci_upper"])
 
     count_tot = df_treat.groupby(["stem", "ref_id"])["count"].transform("sum")
     mask = count_tot >= min_count_tot
@@ -308,7 +377,7 @@ def filter_ref(
         for dele in range(1, max_up_del_size + 1):
             mask = mask & (
                 utils.count_tem_dele(df_treat, tem, dele)
-                <= count_blunt * max_freq_deleM_temN_rel_blunt[dele][tem]
+                <= count_blunt * outlier_ratio[dele]
             )
 
     df_treat.loc[mask].reset_index(drop=True).to_feather(
@@ -318,7 +387,7 @@ def filter_ref(
 
 def stat_mutant(root_dir: os.PathLike, min_count_tot: int):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/analyze/stat_mutant")
+    save_dir = root_dir / "figures" / "analyze" / "stat_mutant"
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(

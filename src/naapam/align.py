@@ -234,7 +234,7 @@ def collect_control(
 def stat_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/stat_control/{chip}")
+        save_dir = root_dir / "figures" / "align" / "stat_control" / chip
         df_control = pd.read_feather(root_dir / "control" / "full" / f"{chip}.feather")
         stat(df=df_control, save_dir=save_dir)
         draw(save_dirs=[save_dir], summary_dir=save_dir)
@@ -273,7 +273,7 @@ def filter_nofunc_control(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "func", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/filter_nofunc_control/{chip}")
+        save_dir = root_dir / "figures" / "align" / "filter_nofunc_control" / chip
         os.makedirs(save_dir, exist_ok=True)
         df_stat = pd.DataFrame(columns=["row_num", "count"], index=["full", "filter"])
 
@@ -482,7 +482,7 @@ def cluster_func_control_by_mutant(
 def stat_func_control(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/stat_func_control/{chip}")
+        save_dir = root_dir / "figures" / "align" / "stat_func_control" / chip
         os.makedirs(save_dir, exist_ok=True)
         df_control = pd.read_feather(
             root_dir / "control" / "cluster" / f"{chip}.feather"
@@ -601,7 +601,7 @@ def filter_low_quality_barcode(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "hq_bar", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/filter_low_quality_barcode/{chip}")
+        save_dir = root_dir / "figures" / "align" / "filter_low_quality_barcode" / chip
         os.makedirs(save_dir, exist_ok=True)
         df_control = pd.read_feather(
             root_dir / "control" / "cluster" / f"{chip}.feather"
@@ -637,7 +637,7 @@ def filter_low_quality_mutant(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "hq_mut", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        save_dir = pathlib.Path(f"figures/align/filter_low_quality_mutant/{chip}")
+        save_dir = root_dir / "figures" / "align" / "filter_low_quality_mutant" / chip
         os.makedirs(save_dir, exist_ok=True)
         df_control = pd.read_feather(
             root_dir / "control" / "hq_bar" / f"{chip}.feather"
@@ -754,7 +754,7 @@ def collect_treat(root_dir: os.PathLike):
 
 def stat_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = pathlib.Path("figures/align/stat_treat")
+    save_dir = root_dir / "figures" / "align" / "stat_treat"
     save_dirs = []
     for treat_file in os.listdir(root_dir / "treat" / "full"):
         df_treat = pd.read_feather(root_dir / "treat" / "full" / treat_file)
@@ -799,8 +799,12 @@ def filter_treat(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "treat" / "filter", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "full"):
-        save_dir = pathlib.Path(
-            f"figures/align/filter_treat/{pathlib.Path(treat_file).stem}"
+        save_dir = (
+            root_dir
+            / "figures"
+            / "align"
+            / "filter_treat"
+            / pathlib.Path(treat_file).stem
         )
         os.makedirs(save_dir, exist_ok=True)
 
@@ -839,8 +843,12 @@ def demultiplex(root_dir: os.PathLike):
     os.makedirs(root_dir / "query" / "found", exist_ok=True)
     os.makedirs(root_dir / "query" / "not_found", exist_ok=True)
     for treat_file in os.listdir(root_dir / "treat" / "filter"):
-        save_dir = pathlib.Path(
-            f"figures/align/demultiplex/{pathlib.Path(treat_file).stem}"
+        save_dir = (
+            root_dir
+            / "figures"
+            / "align"
+            / "demultiplex"
+            / pathlib.Path(treat_file).stem
         )
         os.makedirs(save_dir, exist_ok=True)
 
@@ -902,7 +910,7 @@ def demultiplex(root_dir: os.PathLike):
             index=False,
         )
 
-    summary_demultiplex(save_dir="figures/align/demultiplex")
+    summary_demultiplex(save_dir=root_dir / "figures" / "align" / "demultiplex")
 
 
 def summary_demultiplex(save_dir: os.PathLike):

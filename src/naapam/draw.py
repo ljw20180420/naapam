@@ -43,7 +43,7 @@ def mean_freq_over_up_del_size_on_tem(
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "correct" / "treat.feather"
     )
-    save_dir = pathlib.Path("figures/analyze/mean_freq_over_up_del_size_on_tem")
+    save_dir = root_dir / "figures" / "analyze" / "mean_freq_over_up_del_size_on_tem"
 
     for tem in range(1, 5):
         os.makedirs(save_dir / str(tem), exist_ok=True)
