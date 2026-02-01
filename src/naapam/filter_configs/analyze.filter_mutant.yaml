@@ -1,4 +1,3 @@
-max_up_del_size: 20
 max_down_del_size: 20
 max_rand_ins_size: 10
 max_freq_mutant: 1.0

@@ -10,7 +10,7 @@ def duplicate_treat(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "dup", exist_ok=True)
     df_treat = pd.read_feather(
-        root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
+        root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
     )
     df_treat = df_treat.assign(
         chip=lambda df: df["stem"].map(utils.infer_chip),
