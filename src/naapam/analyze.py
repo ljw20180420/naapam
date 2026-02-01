@@ -13,7 +13,28 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "align" / "correct", exist_ok=True)
     for alg_file in os.listdir(root_dir / "align" / "raw"):
-        df_alg = utils.read_alg(root_dir / "align" / "raw" / alg_file, correct=False)
+        df_alg = utils.read_alg(
+            root_dir / "align" / "raw" / alg_file,
+            names=[
+                "index",
+                "count",
+                "score",
+                "ref_id",
+                "updangle",
+                "ref_start1",
+                "query_start1",
+                "ref_end1",
+                "query_end1",
+                "random_insertion",
+                "ref_start2",
+                "query_start2",
+                "ref_end2",
+                "query_end2",
+                "downdangle",
+                "cut1",
+                "cut2",
+            ],
+        )
         df_query = pd.read_csv(
             root_dir / "query" / "found" / f"{pathlib.Path(alg_file).stem}.query",
             sep="\t",
@@ -90,7 +111,30 @@ def stat_read(root_dir: os.PathLike):
     df_algs = []
     for alg_file in os.listdir(root_dir / "align" / "correct"):
         df_algs.append(
-            utils.read_alg(root_dir / "align" / "correct" / alg_file, correct=True)
+            utils.read_alg(
+                root_dir / "align" / "correct" / alg_file,
+                names=[
+                    "index",
+                    "count",
+                    "score",
+                    "ref_id",
+                    "updangle",
+                    "ref_start1",
+                    "query_start1",
+                    "ref_end1",
+                    "query_end1",
+                    "random_insertion",
+                    "ref_start2",
+                    "query_start2",
+                    "ref_end2",
+                    "query_end2",
+                    "downdangle",
+                    "cut1",
+                    "cut2",
+                    "count_ref",
+                    "count_distri",
+                ],
+            )
             .groupby("score")["count_distri"]
             .sum()
             .rename("count")
@@ -115,7 +159,30 @@ def collect_data(
     os.makedirs(root_dir / "analyze" / "control" / "full", exist_ok=True)
     df_algs = []
     for alg_file in os.listdir(root_dir / "align" / "correct"):
-        df_alg = utils.read_alg(root_dir / "align" / "correct" / alg_file, correct=True)
+        df_alg = utils.read_alg(
+            root_dir / "align" / "correct" / alg_file,
+            names=[
+                "index",
+                "count",
+                "score",
+                "ref_id",
+                "updangle",
+                "ref_start1",
+                "query_start1",
+                "ref_end1",
+                "query_end1",
+                "random_insertion",
+                "ref_start2",
+                "query_start2",
+                "ref_end2",
+                "query_end2",
+                "downdangle",
+                "cut1",
+                "cut2",
+                "count_ref",
+                "count_distri",
+            ],
+        )
         df_alg = (
             df_alg.query("score >= @min_score")
             .groupby(

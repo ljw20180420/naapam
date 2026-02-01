@@ -264,40 +264,27 @@ def pivot_legal(df: pd.DataFrame, column: str) -> pd.DataFrame:
 ###########################################
 
 
-def read_alg(alg_file: os.PathLike, correct: bool):
-    names = [
-        "index",
-        "count",
-        "score",
-        "ref_id",
-        "updangle",
-        "ref_start1",
-        "query_start1",
-        "ref_end1",
-        "query_end1",
-        "random_insertion",
-        "ref_start2",
-        "query_start2",
-        "ref_end2",
-        "query_end2",
-        "downdangle",
-        "cut1",
-        "cut2",
-    ]
-    if correct:
-        names += ["count_ref", "count_distri"]
-    names += ["ref", "query"]
-
-    with subprocess.Popen(
-        args=["sed", "-e", r"N;N;s/\n/\t/g", os.fspath(alg_file)],
-        stdout=subprocess.PIPE,
-    ) as process:
-        df_alg = pd.read_csv(
-            process.stdout,
-            sep="\t",
-            names=names,
-            keep_default_na=False,
+def read_alg(alg_file: os.PathLike, names: list[str]) -> pd.DataFrame:
+    df_alg = pd.read_csv(alg_file, header=None).loc[:, 0]
+    df_alg.index = pd.MultiIndex.from_tuples(
+        zip(
+            np.repeat(np.arange(df_alg.shape[0] // 3), 3),
+            np.tile(["meta", "ref", "query"], df_alg.shape[0] // 3),
         )
+    )
+    df_alg = df_alg.unstack()
+    df_meta = (
+        df_alg["meta"]
+        .str.split("\t", expand=True)
+        .rename(columns={idx: name for idx, name in enumerate(names)})
+    ).astype(
+        {
+            name: int if name != "count_distri" else float
+            for name in names
+            if name not in ["updangle", "random_insertion", "downdangle"]
+        }
+    )
+    df_alg = pd.concat([df_meta, df_alg.drop(columns="meta")], axis=1)
 
     return df_alg
 
@@ -344,7 +331,28 @@ def call_rearr(
             shell=True,
         )
 
-        df_alg = read_alg(tmpdir / "alg", correct=False)
+        df_alg = read_alg(
+            tmpdir / "alg",
+            names=[
+                "index",
+                "count",
+                "score",
+                "ref_id",
+                "updangle",
+                "ref_start1",
+                "query_start1",
+                "ref_end1",
+                "query_end1",
+                "random_insertion",
+                "ref_start2",
+                "query_start2",
+                "ref_end2",
+                "query_end2",
+                "downdangle",
+                "cut1",
+                "cut2",
+            ],
+        )
 
     return df_alg
 
