@@ -468,4 +468,8 @@ def kim_correct(
         freq_kim=freq_kim,
     )
 
-    df_treat.to_feather(root_dir / "analyze" / "treat" / "correct" / "treat.feather")
+    df_treat.to_csv(
+        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
+        index=False,
+        na_rep="NA",
+    )

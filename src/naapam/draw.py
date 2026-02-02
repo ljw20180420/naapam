@@ -40,8 +40,11 @@ def mean_freq_over_up_del_size_on_tem(
     root_dir: os.PathLike,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    df_treat = pd.read_feather(
-        root_dir / "analyze" / "treat" / "correct" / "treat.feather"
+    df_treat = pd.read_csv(
+        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
+        header=0,
+        na_values=["NA"],
+        keep_default_na=False,
     )
     save_dir = root_dir / "figures" / "analyze" / "mean_freq_over_up_del_size_on_tem"
 
