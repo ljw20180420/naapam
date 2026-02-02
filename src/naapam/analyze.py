@@ -280,7 +280,7 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int, max_up_del_size: int):
                     name = f"freq_dele{dele}_tem{tem}"
                 elif column == "freq_dele_rel_blunt":
                     name = f"freq_dele{dele}_tem{tem}_rel_blunt"
-                df_treat_dele[column].plot.hist(
+                df_treat_dele[column].clip(upper=10).plot.hist(
                     bins=300, logy=True
                 ).get_figure().savefig(save_dir / f"{name}.pdf")
                 plt.close("all")
@@ -451,9 +451,7 @@ def filter_mutant(
     )
 
 
-def kim_correct(
-    root_dir: os.PathLike,
-):
+def kim_correct(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "correct", exist_ok=True)
 
@@ -470,6 +468,68 @@ def kim_correct(
 
     df_treat.to_csv(
         root_dir / "analyze" / "treat" / "correct" / "treat.csv",
+        index=False,
+        na_rep="NA",
+    )
+
+
+def annote_columns(root_dir: os.PathLike):
+    root_dir = pathlib.Path(os.fspath(root_dir))
+    os.makedirs(root_dir / "analyze" / "treat" / "annote", exist_ok=True)
+
+    df_treat = pd.read_csv(
+        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
+        header=0,
+        na_values=["NA"],
+        keep_default_na=False,
+    )
+
+    # Read barcode and sgRNA from the generated fasta file to prevent the inconsistency when use custom plasmid file.
+    df_bar = (
+        pd.read_csv(root_dir / "barcode" / "index" / "barcode.fa", names=["barcode"])
+        .loc[1::2, :]
+        .reset_index(drop=True)
+        .reset_index(names="barcode_id")
+    )
+    df_sgRNA = (
+        pd.read_csv(root_dir / "sgRNA" / "index" / "sgRNA.fa", names=["sgRNA"])
+        .loc[1::2, :]
+        .reset_index(drop=True)
+        .reset_index(names="barcode_id")
+    )
+
+    df_controls = []
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        df_controls.append(
+            pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
+                ["barcode_id"]
+            ]
+            .reset_index(names="ref_id")
+            .assign(chip=chip)
+        )
+    df_controls = pd.concat(df_controls).reset_index(drop=True)
+
+    df_controls = df_controls.merge(
+        right=df_bar,
+        how="left",
+        on=["barcode_id"],
+        validate="many_to_one",
+    ).merge(
+        right=df_sgRNA,
+        how="left",
+        on=["barcode_id"],
+        validate="many_to_one",
+    )
+
+    df_treat = df_treat.merge(
+        right=df_controls,
+        how="left",
+        on=["chip", "ref_id"],
+        validate="many_to_one",
+    )
+
+    df_treat.to_csv(
+        root_dir / "analyze" / "treat" / "annote" / "treat.csv",
         index=False,
         na_rep="NA",
     )
