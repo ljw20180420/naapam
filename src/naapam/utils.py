@@ -221,7 +221,9 @@ def kim(df: pd.DataFrame) -> tuple[pd.Series]:
         .groupby(["stem", "ref_id"])["count_kim"]
         .transform("sum")
     )
-    count_tot_kim = count_tot * (df["count_wt_ctl"] / (df["count_tot_ctl"] + 1e-6))
+    count_tot_kim = count_tot * (
+        (df["count_wt_ctl"] + 1e-6) / (df["count_tot_ctl"] + 1e-6)
+    )
     freq_mut_kim = np.minimum(
         1.0,
         count_kim_sum / (count_tot_kim + 1e-6),
