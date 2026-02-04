@@ -337,13 +337,17 @@ def cluster_func_control_by_mutant(
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         if plasmid_file is None:
             if chip in ["a1", "a2", "a3"]:
-                plasmid_file = "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+                plasmid_file_default = (
+                    "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+                )
             else:
-                plasmid_file = "plasmids/final_hgsgrna_libb_all_0811-NGG.csv"
-        with resources.as_file(
-            resources.files().parent / "plasmids" / plasmid_file
-        ) as pf:
-            df_plasmid = pd.read_csv(pf, header=0)
+                plasmid_file_default = "final_hgsgrna_libb_all_0811-NGG.csv"
+            with resources.as_file(
+                resources.files() / "plasmids" / plasmid_file_default
+            ) as pf:
+                df_plasmid = pd.read_csv(pf, header=0)
+        else:
+            df_plasmid = pd.read_csv(plasmid_file, header=0)
         df_plasmid = df_plasmid.assign(
             ref2=lambda df: (
                 "AAATAAGGCTAGTCCGTTATCAACTTGAAAAAGTGGCACCGAGTCGGTGCTTTTTTG"
@@ -437,38 +441,82 @@ def cluster_func_control_by_mutant(
             .astype({"count_wt": int})
         )
 
-        # count_temN
-        for tem in range(1, 5):
-            df_control = (
-                df_control.merge(
-                    right=df_control.query(
-                        """
-                        ref_end1 + @tem + 1 == cut1 and \
-                        ref_start2 + @tem == cut2 and \
-                        random_insertion == ""
-                    """
-                    )[["barcode_id", "count"]].rename(
-                        columns={"count": f"count_tem{tem}"}
-                    ),
-                    how="left",
-                    on=["barcode_id"],
-                    validate="many_to_one",
+        # 1bp insertion
+        df_insert = (
+            df_control.query(
+                """
+                ref_end1 + @ext + 1 >= cut1 and \
+                ref_start2 - @ext - 1 <= cut2 and \
+                (\
+                    (ref_end1 - cut1 + cut2 - ref_start2 == 1 and random_insertion == "") or \
+                    (ref_end1 - cut1 + cut2 - ref_start2 == 0 and random_insertion.str.len() == 1) \
                 )
-                .assign(
-                    **{f"count_tem{tem}": lambda df: df[f"count_tem{tem}"].fillna(0)}
-                )
-                .astype({f"count_tem{tem}": int})
+            """
             )
+            .assign(
+                type=lambda df: "ins"
+                + (df["ref_end1"] - df["cut1"])
+                .where(df["ref_end1"] <= df["cut1"], df["ref_start2"] - df["cut2"])
+                .astype(str)
+                .str.replace("-", "m"),
+            )
+            .groupby(["barcode_id", "type"])["count"]
+            .sum()
+            .reset_index()
+        )
+
+        for pos in range(-ext, ext + 1):
+            type = f"ins{pos}".replace("-", "m")
+            df_control = df_control.merge(
+                right=df_insert.query("type == @type")[["barcode_id", "count"]].rename(
+                    columns={"count": f"count_{type}"}
+                ),
+                how="left",
+                on=["barcode_id"],
+                validate="many_to_one",
+            ).assign(**{f"count_{type}": lambda df: df[f"count_{type}"].fillna(0)})
+
+        # 1bp deletion
+        df_delete = (
+            df_control.query(
+                """
+                ref_end1 + @ext + 1 >= cut1 and \
+                ref_start2 - @ext - 1 <= cut2 and \
+                ref_end1 - cut1 + cut2 - ref_start2 == -1 and random_insertion == ""
+            """
+            )
+            .assign(
+                type=lambda df: "del"
+                + (df["ref_end1"] - df["cut1"]).astype(str).str.replace("-", "m")
+            )
+            .groupby(["barcode_id", "type"])["count"]
+            .sum()
+            .reset_index()
+        )
+
+        for pos in range(-ext - 1, ext + 1):
+            type = f"del{pos}".replace("-", "m")
+            df_control = df_control.merge(
+                right=df_delete.query("type == @type")[["barcode_id", "count"]].rename(
+                    columns={"count": f"count_{type}"}
+                ),
+                how="left",
+                on=["barcode_id"],
+                validate="many_to_one",
+            ).assign(**{f"count_{type}": lambda df: df[f"count_{type}"].fillna(0)})
 
         # count_tot, first, second
+        all_counts = (
+            ["count_wt"]
+            + [f"count_del{pos}".replace("-", "m") for pos in range(-ext - 1, ext + 1)]
+            + [f"count_ins{pos}".replace("-", "m") for pos in range(-ext, ext + 1)]
+        )
         df_control = df_control.assign(
             count_tot=lambda df: df.groupby("barcode_id")["count"].transform("sum"),
-            first=lambda df: df[
-                ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
-            ].max(axis=1),
-            second=lambda df: df[
-                ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
-            ].apply(lambda row: row.nlargest(2).min(), axis=1),
+            first=lambda df: df[all_counts].max(axis=1),
+            second=lambda df: df[all_counts].apply(
+                lambda row: row.nlargest(2).min(), axis=1
+            ),
         )
 
         # mutant_type_num
@@ -479,7 +527,7 @@ def cluster_func_control_by_mutant(
         df_control.to_feather(root_dir / "control" / "cluster" / f"{chip}.feather")
 
 
-def stat_func_control(root_dir: os.PathLike):
+def stat_func_control(root_dir: os.PathLike, ext: int):
     root_dir = pathlib.Path(os.fspath(root_dir))
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
         save_dir = root_dir / "figures" / "align" / "stat_func_control" / chip
@@ -563,12 +611,13 @@ def stat_func_control(root_dir: os.PathLike):
         plt.close("all")
 
         # type_max
+        all_counts = (
+            ["count_wt"]
+            + [f"count_del{pos}".replace("-", "m") for pos in range(-ext - 1, ext + 1)]
+            + [f"count_ins{pos}".replace("-", "m") for pos in range(-ext, ext + 1)]
+        )
         df_stat = (
-            df_control.assign(
-                type_max=lambda df: df[
-                    ["count_wt", "count_tem1", "count_tem2", "count_tem3", "count_tem4"]
-                ].idxmax(axis=1)
-            )
+            df_control.assign(type_max=lambda df: df[all_counts].idxmax(axis=1))
             .groupby("barcode_id")
             .agg(
                 count_tot=pd.NamedAgg(column="count", aggfunc="sum"),
