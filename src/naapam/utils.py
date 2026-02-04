@@ -221,6 +221,7 @@ def kim(df: pd.DataFrame) -> tuple[pd.Series]:
         .groupby(["stem", "ref_id"])["count_kim"]
         .transform("sum")
     )
+    # Add a small value to both count_tot_ctl and count_wt_ctl so that if count_tot_ctl is 0, then no correction will be applied.
     count_tot_kim = count_tot * (
         (df["count_wt_ctl"] + 1e-6) / (df["count_tot_ctl"] + 1e-6)
     )
