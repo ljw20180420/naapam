@@ -142,7 +142,12 @@ def merge(root_dir: os.PathLike):
         "ref_id",
     ]
     df_treat = df_treat.merge(
-        right=df_control[on + ["count_wt_ctl", "count_tot_ctl"]],
+        right=df_control.groupby(on)
+        .agg(
+            count_wt_ctl=pd.NamedAgg(column="count_wt_ctl", aggfunc="first"),
+            count_tot_ctl=pd.NamedAgg(column="count_tot_ctl", aggfunc="first"),
+        )
+        .reset_index(),
         how="left",
         on=on,
         validate="many_to_one",
