@@ -129,12 +129,24 @@ def merge(root_dir: os.PathLike):
         "random_insertion",
     ]
     df_treat = df_treat.merge(
-        right=df_control[on + ["count_ctl", "count_wt_ctl", "count_tot_ctl"]],
+        right=df_control[on + ["count_ctl"]],
+        how="left",
+        on=on,
+        validate="many_to_one",
+    ).assign(count_ctl=lambda df: df["count_ctl"].fillna(0))
+
+    on = [
+        "chip",
+        "time",
+        "wt",
+        "ref_id",
+    ]
+    df_treat = df_treat.merge(
+        right=df_control[on + ["count_wt_ctl", "count_tot_ctl"]],
         how="left",
         on=on,
         validate="many_to_one",
     ).assign(
-        count_ctl=lambda df: df["count_ctl"].fillna(0),
         count_wt_ctl=lambda df: df["count_wt_ctl"].fillna(0),
         count_tot_ctl=lambda df: df["count_tot_ctl"].fillna(0),
     )
