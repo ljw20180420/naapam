@@ -332,6 +332,35 @@ def filter_nofunc_control(
 def cluster_func_control_by_mutant(
     root_dir: os.PathLike, ext: int, plasmid_file: os.PathLike | None
 ):
+    def infer_indel(row: pd.Series) -> pd.Series:
+        ref_end1 = row["ref_end1"]
+        ref_start2 = row["ref_start2"]
+        random_insertion = row["random_insertion"]
+        cut1 = row["cut1"]
+        cut2 = row["cut2"]
+        if ref_end1 - cut1 == ref_start2 - cut2:
+            if random_insertion == "":
+                indel_type = "wt"
+                pos = 0
+                size = 0
+            else:
+                indel_type = "ins"
+                pos = 0
+                size = len(random_insertion)
+        elif ref_end1 - cut1 < ref_start2 - cut2:
+            pos = ref_end1 - cut1
+            size = ref_start2 - cut2 - ref_end1 + cut1 + len(random_insertion)
+            if random_insertion == "":
+                indel_type = "del"
+            else:
+                indel_type = "indel"
+        else:
+            indel_type = "ins"
+            pos = ref_start2 - cut2
+            size = ref_end1 - cut1 - ref_start2 + cut2 + len(random_insertion)
+
+        return f"{indel_type}_{pos}_{size}".replace("-", "m")
+
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "cluster", exist_ok=True)
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
@@ -441,82 +470,50 @@ def cluster_func_control_by_mutant(
             .astype({"count_wt": int})
         )
 
-        # 1bp insertion
-        df_insert = (
-            df_control.query(
-                """
-                ref_end1 + @ext + 1 >= cut1 and \
-                ref_start2 - @ext - 1 <= cut2 and \
-                (\
-                    (ref_end1 - cut1 + cut2 - ref_start2 == 1 and random_insertion == "") or \
-                    (ref_end1 - cut1 + cut2 - ref_start2 == 0 and random_insertion.str.len() == 1) \
-                )
-            """
-            )
-            .assign(
-                type=lambda df: "ins"
-                + (df["ref_end1"] - df["cut1"])
-                .where(df["ref_end1"] <= df["cut1"], df["ref_start2"] - df["cut2"])
-                .astype(str)
-                .str.replace("-", "m"),
-            )
-            .groupby(["barcode_id", "type"])["count"]
-            .sum()
-            .reset_index()
+        # annote indel type
+        df_control = df_control.assign(
+            indel_type=lambda df: df.apply(infer_indel, axis=1)
         )
 
-        for pos in range(-ext, ext + 1):
-            type = f"ins{pos}".replace("-", "m")
-            df_control = df_control.merge(
-                right=df_insert.query("type == @type")[["barcode_id", "count"]].rename(
-                    columns={"count": f"count_{type}"}
-                ),
-                how="left",
-                on=["barcode_id"],
-                validate="many_to_one",
-            ).assign(**{f"count_{type}": lambda df: df[f"count_{type}"].fillna(0)})
+        all_counts = ["count_wt"]
+        for it in ["del", "ins"]:
+            for size in range(1, 4):
+                for pos in range(-ext - size, ext + 1):
+                    indel_type = f"{it}_{pos}_{size}".replace("-", "m")
+                    df_control = df_control.merge(
+                        right=df_control.query("indel_type == @indel_type")
+                        .groupby("barcode_id")["count"]
+                        .sum()
+                        .rename(f"count_{indel_type}")
+                        .reset_index(),
+                        how="left",
+                        on=["barcode_id"],
+                        validate="many_to_one",
+                    ).assign(
+                        **{
+                            f"count_{indel_type}": lambda df: df[
+                                f"count_{indel_type}"
+                            ].fillna(0)
+                        }
+                    )
+                    all_counts.append(f"count_{indel_type}")
 
-        # 1bp deletion
-        df_delete = (
-            df_control.query(
-                """
-                ref_end1 + @ext + 1 >= cut1 and \
-                ref_start2 - @ext - 1 <= cut2 and \
-                ref_end1 - cut1 + cut2 - ref_start2 == -1 and random_insertion == ""
-            """
-            )
-            .assign(
-                type=lambda df: "del"
-                + (df["ref_end1"] - df["cut1"]).astype(str).str.replace("-", "m")
-            )
-            .groupby(["barcode_id", "type"])["count"]
-            .sum()
-            .reset_index()
-        )
+                df_control = df_control.copy()
 
-        for pos in range(-ext - 1, ext + 1):
-            type = f"del{pos}".replace("-", "m")
-            df_control = df_control.merge(
-                right=df_delete.query("type == @type")[["barcode_id", "count"]].rename(
-                    columns={"count": f"count_{type}"}
-                ),
-                how="left",
-                on=["barcode_id"],
-                validate="many_to_one",
-            ).assign(**{f"count_{type}": lambda df: df[f"count_{type}"].fillna(0)})
-
-        # count_tot, first, second
-        all_counts = (
-            ["count_wt"]
-            + [f"count_del{pos}".replace("-", "m") for pos in range(-ext - 1, ext + 1)]
-            + [f"count_ins{pos}".replace("-", "m") for pos in range(-ext, ext + 1)]
-        )
+        # count_tot, first, second, first_all, second_all
         df_control = df_control.assign(
             count_tot=lambda df: df.groupby("barcode_id")["count"].transform("sum"),
             first=lambda df: df[all_counts].max(axis=1),
             second=lambda df: df[all_counts].apply(
                 lambda row: row.nlargest(2).min(), axis=1
             ),
+            first_all=lambda df: df.groupby("barcode_id")["count"].transform("max"),
+            second_all=lambda df: df.groupby("barcode_id")["count"].transform(
+                lambda se: se.nlargest(2).min()
+            ),
+        )
+        df_control["second_all"] = df_control["second_all"].where(
+            df_control.groupby("barcode_id").transform("size") > 1, 0
         )
 
         # mutant_type_num
@@ -610,12 +607,24 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
         )
         plt.close("all")
 
-        # type_max
-        all_counts = (
-            ["count_wt"]
-            + [f"count_del{pos}".replace("-", "m") for pos in range(-ext - 1, ext + 1)]
-            + [f"count_ins{pos}".replace("-", "m") for pos in range(-ext, ext + 1)]
+        # second_all_rel_first_all
+        df_control.assign(
+            second_all_rel_first_all=lambda df: df["second_all"]
+            / (df["first_all"] + 1e-6)
+        ).groupby("barcode_id")["second_all_rel_first_all"].first().plot.hist(
+            bins=100, logy=True
+        ).get_figure().savefig(
+            save_dir / "second_all_rel_first_all.pdf"
         )
+        plt.close("all")
+
+        # type_max
+        all_counts = ["count_wt"]
+        for it in ["del", "ins"]:
+            for size in range(1, 4):
+                for pos in range(-ext - size, ext + 1):
+                    indel_type = f"{it}_{pos}_{size}".replace("-", "m")
+                    all_counts.append(f"count_{indel_type}")
         df_stat = (
             df_control.assign(type_max=lambda df: df[all_counts].idxmax(axis=1))
             .groupby("barcode_id")
@@ -646,6 +655,7 @@ def filter_low_quality_barcode(
     min_count_tot: int,
     min_freq_wt: float,
     max_second_rel_first: float,
+    max_second_all_rel_first_all: float,
 ):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "control" / "hq_bar", exist_ok=True)
@@ -663,7 +673,8 @@ def filter_low_quality_barcode(
             """
                 mutant_type_num <= @max_mutant_type_num and \
                 (count_tot >= @min_count_tot or count_wt / count_tot >= @min_freq_wt) and \
-                second / (first + 1e-6) <= @max_second_rel_first
+                second / (first + 1e-6) <= @max_second_rel_first and \
+                second_all / (first_all + 1e-6) <= @max_second_all_rel_first_all
             """
         ).reset_index(drop=True)
 
