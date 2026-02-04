@@ -36,7 +36,7 @@ grid_colors = [
 ]
 
 
-def mean_freq_over_up_del_size_on_tem(root_dir: os.PathLike):
+def mean_freq_over_up_del_size_on_tem(root_dir: os.PathLike, target: str):
     root_dir = pathlib.Path(os.fspath(root_dir))
     df_treat = pd.read_csv(
         root_dir / "analyze" / "treat" / "correct" / "treat.csv",
@@ -56,6 +56,7 @@ def mean_freq_over_up_del_size_on_tem(root_dir: os.PathLike):
         mean_freq_over_up_del_size_on_tem_inner(
             df_treat,
             tem,
+            target,
             save_dir / "all.png",
         )
         for stem in df_treat["stem"].unique().tolist():
@@ -63,12 +64,13 @@ def mean_freq_over_up_del_size_on_tem(root_dir: os.PathLike):
             mean_freq_over_up_del_size_on_tem_inner(
                 df_treat_stem,
                 tem,
+                target,
                 save_dir / f"{stem}.png",
             )
 
 
 def mean_freq_over_up_del_size_on_tem_inner(
-    df_treat: pd.DataFrame, tem: int, save_file: os.PathLike
+    df_treat: pd.DataFrame, tem: int, target: str, save_file: os.PathLike
 ):
     df_tem = (
         df_treat.query(
@@ -86,7 +88,7 @@ def mean_freq_over_up_del_size_on_tem_inner(
         return
 
     df_value = (
-        utils.pivot_value(df=df_tem, value="freq_kim", column="up_del_size")
+        utils.pivot_value(df=df_tem, value=target, column="up_del_size")
         .assign(cas=lambda df: df["stem"].map(utils.infer_cas))
         .drop(columns=["stem", "ref_id"])
         .groupby("cas")
@@ -108,12 +110,12 @@ def mean_freq_over_up_del_size_on_tem_inner(
             id_vars="cas",
             value_vars=value_vars,
             var_name="up_del_size",
-            value_name="freq_kim",
+            value_name=target,
         )
     )
 
     (
-        ggplot(df_mean, aes(x="up_del_size", y="freq_kim", group="cas", color="cas"))
+        ggplot(df_mean, aes(x="up_del_size", y=target, group="cas", color="cas"))
         + geom_line()
         + scale_color_manual(values=grid_colors)
     ).save(save_file)
