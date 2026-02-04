@@ -230,7 +230,6 @@ def stat_ref(root_dir: os.PathLike, min_count_tot: int, max_up_del_size: int):
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "full" / "treat.feather"
     )
-
     df_treat.groupby(["stem", "ref_id"])["count"].sum().clip(upper=300).plot.hist(
         bins=np.linspace(0, 301, 302)
     ).get_figure().savefig(save_dir / "count_tot.pdf")
@@ -359,7 +358,6 @@ def filter_ref(
     """
     Use positive mask because nan compare always return False.
     """
-    breakpoint()
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "ref", exist_ok=True)
 
