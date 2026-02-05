@@ -282,12 +282,14 @@ def parse_barcode(root_dir: os.PathLike):
     for parse_file in os.listdir(root_dir / "parse" / "nobar"):
         sam_file = f"{pathlib.Path(parse_file).stem}.sam"
         sam = pysam.AlignmentFile(root_dir / "barcode" / "align" / sam_file)
+        qnames = []
         barcode_heads = []
         barcodes = []
         CTG_target_prefixs = []
         barcode_ids = []
         barcode_scores = []
         for align in sam.fetch():
+            qnames.append(int(align.qname))
             if (align.flag // 4) % 2 == 1:
                 barcode_heads.append("")
                 barcodes.append("")
@@ -300,6 +302,16 @@ def parse_barcode(root_dir: os.PathLike):
                 CTG_target_prefixs.append(align.seq[align.qend :])
                 barcode_ids.append(align.rname)
                 barcode_scores.append(align.get_tag("AS"))
+        df_sam = pd.DataFrame(
+            {
+                "qname": qnames,
+                "barcode_head": barcode_heads,
+                "barcode": barcodes,
+                "CTG_target_prefix": CTG_target_prefixs,
+                "barcode_id": barcode_ids,
+                "barcode_score": barcode_scores,
+            }
+        )
 
         df_parse = (
             pd.read_csv(
@@ -308,13 +320,12 @@ def parse_barcode(root_dir: os.PathLike):
                 header=0,
                 keep_default_na=False,
             )
-            .drop(columns="barcode_CTG_target_prefix")
-            .assign(
-                barcode_head=barcode_heads,
-                barcode=barcodes,
-                CTG_target_prefix=CTG_target_prefixs,
-                barcode_id=barcode_ids,
-                barcode_score=barcode_scores,
+            .reset_index(names="qname")
+            .merge(
+                right=df_sam,
+                how="left",
+                on=["qname"],
+                validate="one_to_one",
             )[
                 [
                     "R1_barcode",
@@ -455,72 +466,100 @@ def parse_sgRNA(root_dir: os.PathLike):
         R1_sam = pysam.AlignmentFile(
             root_dir / "sgRNA" / "align" / "R1_sgRNA" / sam_file
         )
+        R1_qnames = []
         R1_sgRNA_ids = []
         R1_sgRNA_bowtie2_scores = []
         for align in R1_sam.fetch():
+            R1_qnames.append(int(align.qname))
             if (align.flag // 4) % 2 == 1:
                 R1_sgRNA_ids.append(-1)
                 R1_sgRNA_bowtie2_scores.append(0)
             else:
                 R1_sgRNA_ids.append(align.rname)
                 R1_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
+        df_R1_sam = pd.DataFrame(
+            {
+                "qname": R1_qnames,
+                "R1_sgRNA_id": R1_sgRNA_ids,
+                "R1_sgRNA_bowtie2_score": R1_sgRNA_bowtie2_scores,
+            }
+        )
 
         R2_sam = pysam.AlignmentFile(
             root_dir / "sgRNA" / "align" / "R2_sgRNA" / sam_file
         )
+        R2_qnames = []
         R2_sgRNA_ids = []
         R2_sgRNA_bowtie2_scores = []
         for align in R2_sam.fetch():
+            R2_qnames.append(int(align.qname))
             if (align.flag // 4) % 2 == 1:
                 R2_sgRNA_ids.append(-1)
                 R2_sgRNA_bowtie2_scores.append(0)
             else:
                 R2_sgRNA_ids.append(align.rname)
                 R2_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
+        df_R2_sam = pd.DataFrame(
+            {
+                "qname": R2_qnames,
+                "R2_sgRNA_id": R2_sgRNA_ids,
+                "R2_sgRNA_bowtie2_score": R2_sgRNA_bowtie2_scores,
+            }
+        )
 
-        df_parse = pd.read_csv(
-            root_dir / "parse" / "bar" / parse_file,
-            sep="\t",
-            header=0,
-            keep_default_na=False,
-        ).assign(
-            R1_sgRNA_id=R1_sgRNA_ids,
-            R1_sgRNA_bowtie2_score=R1_sgRNA_bowtie2_scores,
-            R2_sgRNA_id=R2_sgRNA_ids,
-            R2_sgRNA_bowtie2_score=R2_sgRNA_bowtie2_scores,
-        )[
-            [
-                "R1_barcode",
-                "R1_primer",
-                "G",
-                "R1_sgRNA",
-                "R1_scaffold_prefix",
-                "R1_tail",
-                "R1_primer_score",
-                "R1_scaffold_prefix_score",
-                "R2_barcode",
-                "R2_primer",
-                "barcode_head",
-                "barcode",
-                "CTG_target_prefix",
-                "R2_sgRNA",
-                "pam",
-                "target_suffix",
-                "C",
-                "R2_scaffold_prefix",
-                "R2_tail",
-                "R2_primer_score",
-                "R2_scaffold_prefix_score",
-                "R2_sgRNA_score",
-                "barcode_score",
-                "R1_sgRNA_bowtie2_score",
-                "R2_sgRNA_bowtie2_score",
-                "barcode_id",
-                "R1_sgRNA_id",
-                "R2_sgRNA_id",
-                "count",
+        df_parse = (
+            pd.read_csv(
+                root_dir / "parse" / "bar" / parse_file,
+                sep="\t",
+                header=0,
+                keep_default_na=False,
+            )
+            .reset_index(names="qname")
+            .merge(
+                right=df_R1_sam,
+                how="left",
+                on=["qname"],
+                validate="one_to_one",
+            )
+            .merge(
+                right=df_R2_sam,
+                how="left",
+                on=["qname"],
+                validate="one_to_one",
+            )[
+                [
+                    "R1_barcode",
+                    "R1_primer",
+                    "G",
+                    "R1_sgRNA",
+                    "R1_scaffold_prefix",
+                    "R1_tail",
+                    "R1_primer_score",
+                    "R1_scaffold_prefix_score",
+                    "R2_barcode",
+                    "R2_primer",
+                    "barcode_head",
+                    "barcode",
+                    "CTG_target_prefix",
+                    "R2_sgRNA",
+                    "pam",
+                    "target_suffix",
+                    "C",
+                    "R2_scaffold_prefix",
+                    "R2_tail",
+                    "R2_primer_score",
+                    "R2_scaffold_prefix_score",
+                    "R2_sgRNA_score",
+                    "barcode_score",
+                    "R1_sgRNA_bowtie2_score",
+                    "R2_sgRNA_bowtie2_score",
+                    "barcode_id",
+                    "R1_sgRNA_id",
+                    "R2_sgRNA_id",
+                    "count",
+                ]
             ]
-        ]
+        )
 
         df_parse.to_csv(
             root_dir / "parse" / "sgRNA" / parse_file,
