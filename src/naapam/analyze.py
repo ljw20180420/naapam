@@ -148,6 +148,7 @@ def stat_read(root_dir: os.PathLike):
     df_alg["score"].plot.hist(bins=300, weights=df_alg["count"]).get_figure().savefig(
         save_dir / "score.pdf"
     )
+    plt.close("all")
 
 
 def collect_data(

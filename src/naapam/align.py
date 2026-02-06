@@ -322,9 +322,11 @@ def filter_nofunc_control(
         df_stat["row_num"].plot.bar(logy=True).get_figure().savefig(
             save_dir / "row_num.pdf"
         )
+        plt.close("all")
         df_stat["count"].plot.bar(logy=True).get_figure().savefig(
             save_dir / "count.pdf"
         )
+        plt.close("all")
 
         df_control.to_feather(root_dir / "control" / "func" / f"{chip}.feather")
 
@@ -680,6 +682,7 @@ def filter_low_quality_barcode(
 
         df_stat.loc["filter", "bar_num"] = df_control["barcode_id"].unique().shape[0]
         df_stat["bar_num"].plot.bar().get_figure().savefig(save_dir / "bar_num.pdf")
+        plt.close("all")
 
         df_control.to_feather(root_dir / "control" / "hq_bar" / f"{chip}.feather")
 
@@ -726,6 +729,7 @@ def filter_low_quality_mutant(
         ).plot.hist(bins=np.linspace(0, 101, 102)).get_figure().savefig(
             save_dir / "mutant_type_num.pdf"
         )
+        plt.close("all")
 
         df_control.to_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")
 
@@ -893,7 +897,9 @@ def filter_treat(
 
         df_stat.to_csv(save_dir / "stat.csv", index=False)
         df_stat["row_num"].plot.bar().get_figure().savefig(save_dir / "row_num.pdf")
+        plt.close("all")
         df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
+        plt.close("all")
 
         df_treat.to_feather(root_dir / "treat" / "filter" / treat_file)
 
@@ -998,6 +1004,7 @@ def summary_demultiplex(save_dir: os.PathLike):
     ).get_figure().savefig(
         save_dir / "query_number_per_ref.pdf"
     )
+    plt.close("all")
 
     pd.concat(df_query_count_per_refs).groupby("ref_id")[
         "count"
@@ -1006,3 +1013,4 @@ def summary_demultiplex(save_dir: os.PathLike):
     ).get_figure().savefig(
         save_dir / "query_count_per_ref.pdf"
     )
+    plt.close("all")
