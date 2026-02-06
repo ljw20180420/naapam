@@ -495,32 +495,53 @@ def annote_columns(root_dir: os.PathLike):
         .reset_index(drop=True)
         .reset_index(names="barcode_id")
     )
-
-    df_controls = []
+    df_ref = []
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        df_controls.append(
+        df_ref.append(
+            pd.read_csv(
+                root_dir / "ref" / f"{chip}.ref",
+                sep="\t",
+                names=["zero", "ref1", "cut1", "ext", "ref2", "ref2len"],
+            )[["ref1", "ref2"]]
+            .reset_index(names="ref_id")
+            .assign(chip=chip)
+        )
+    df_ref = pd.concat(df_ref).reset_index(drop=True)
+
+    df_control = []
+    for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
+        df_control.append(
             pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
                 ["barcode_id"]
             ]
             .reset_index(names="ref_id")
             .assign(chip=chip)
         )
-    df_controls = pd.concat(df_controls).reset_index(drop=True)
+    df_control = pd.concat(df_control).reset_index(drop=True)
 
-    df_controls = df_controls.merge(
-        right=df_bar,
-        how="left",
-        on=["barcode_id"],
-        validate="many_to_one",
-    ).merge(
-        right=df_sgRNA,
-        how="left",
-        on=["barcode_id"],
-        validate="many_to_one",
+    df_control = (
+        df_control.merge(
+            right=df_bar,
+            how="left",
+            on=["barcode_id"],
+            validate="many_to_one",
+        )
+        .merge(
+            right=df_sgRNA,
+            how="left",
+            on=["barcode_id"],
+            validate="many_to_one",
+        )
+        .merge(
+            right=df_ref,
+            how="left",
+            on=["chip", "ref_id"],
+            validate="many_to_one",
+        )
     )
 
     df_treat = df_treat.merge(
-        right=df_controls,
+        right=df_control,
         how="left",
         on=["chip", "ref_id"],
         validate="many_to_one",
