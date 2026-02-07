@@ -361,7 +361,7 @@ def filter_ref(
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "ref", exist_ok=True)
-    save_dir = root_dir / "figures" / "filter_ref"
+    save_dir = root_dir / "figures" / "analyze" / "filter_ref"
     os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
@@ -369,7 +369,9 @@ def filter_ref(
     )
 
     df_stat = pd.DataFrame(index=["full", "filter"], columns=["ref_num", "count"])
-    df_stat.loc["full", "ref_num"] = df_treat.drop_duplicates().shape[0]
+    df_stat.loc["full", "ref_num"] = (
+        df_treat[["stem", "ref_id"]].drop_duplicates().shape[0]
+    )
     df_stat.loc["full", "count"] = df_treat["count"].sum()
 
     summary_frame = pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)
@@ -388,12 +390,14 @@ def filter_ref(
 
     df_treat = df_treat.loc[mask].reset_index(drop=True)
 
-    df_stat.loc["filter", "ref_num"] = df_treat.drop_duplicates().shape[0]
+    df_stat.loc["filter", "ref_num"] = (
+        df_treat[["stem", "ref_id"]].drop_duplicates().shape[0]
+    )
     df_stat.loc["filter", "count"] = df_treat["count"].sum()
     df_stat.to_csv(save_dir / "stat.csv")
-    df_stat["ref_num"].plot.bar().get_figure.savefig(save_dir / "ref_num.pdf")
+    df_stat["ref_num"].plot.bar().get_figure().savefig(save_dir / "ref_num.pdf")
     plt.close("all")
-    df_stat["count"].plot.bar().get_figure.savefig(save_dir / "count.pdf")
+    df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
     plt.close("all")
 
     df_treat.to_feather(
@@ -448,10 +452,16 @@ def filter_mutant(
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "mutant", exist_ok=True)
+    save_dir = root_dir / "figures" / "analyze" / "filter_mutant"
+    os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
     )
+
+    df_stat = pd.DataFrame(index=["full", "filter"], columns=["mutant_num", "count"])
+    df_stat.loc["full", "mutant_num"] = df_treat.shape[0]
+    df_stat.loc["full", "count"] = df_treat["count"].sum()
 
     df_treat = df_treat.assign(
         legal=(
@@ -461,6 +471,14 @@ def filter_mutant(
             & ((utils.freq_mutant(df_treat) <= max_freq_mutant) | utils.is_wt(df_treat))
         )
     )
+
+    df_stat.loc["filter", "mutant_num"] = df_treat.shape[0]
+    df_stat.loc["filter", "count"] = df_treat["count"].sum()
+    df_stat.to_csv(save_dir / "stat.csv")
+    df_stat["mutant_num"].plot.bar().get_figure().savefig(save_dir / "mutant_num.pdf")
+    plt.close("all")
+    df_stat["count"].plot.bar().get_figure().savefig(save_dir / "count.pdf")
+    plt.close("all")
 
     df_treat.to_feather(
         root_dir / "analyze" / "treat" / "filter" / "mutant" / "treat.feather"
