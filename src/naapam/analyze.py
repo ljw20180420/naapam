@@ -361,10 +361,17 @@ def filter_ref(
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "filter" / "ref", exist_ok=True)
+    save_dir = root_dir / "figures" / "filter_ref"
+    os.makedirs(save_dir, exist_ok=True)
 
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "full" / "treat.feather"
     )
+
+    df_stat = pd.DataFrame(index=["full", "filter"], columns=["ref_num", "count"])
+    df_stat.loc["full", "ref_num"] = df_treat.drop_duplicates().shape[0]
+    df_stat.loc["full", "count"] = df_treat["count"].sum()
+
     summary_frame = pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)
     outlier_ratio = np.exp(summary_frame["obs_ci_upper"])
 
@@ -379,7 +386,17 @@ def filter_ref(
                 <= count_blunt * outlier_ratio[dele]
             )
 
-    df_treat.loc[mask].reset_index(drop=True).to_feather(
+    df_treat = df_treat.loc[mask].reset_index(drop=True)
+
+    df_stat.loc["filter", "ref_num"] = df_treat.drop_duplicates().shape[0]
+    df_stat.loc["filter", "count"] = df_treat["count"].sum()
+    df_stat.to_csv(save_dir / "stat.csv")
+    df_stat["ref_num"].plot.bar().get_figure.savefig(save_dir / "ref_num.pdf")
+    plt.close("all")
+    df_stat["count"].plot.bar().get_figure.savefig(save_dir / "count.pdf")
+    plt.close("all")
+
+    df_treat.to_feather(
         root_dir / "analyze" / "treat" / "filter" / "ref" / "treat.feather"
     )
 
