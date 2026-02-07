@@ -36,7 +36,7 @@ grid_colors = [
 ]
 
 
-def mean_over_up_del_size_on_tem(root_dir: os.PathLike, target: str):
+def mean_over_up_del_size_on_tem(root_dir: os.PathLike, target: str, stem_wise: bool):
     root_dir = pathlib.Path(os.fspath(root_dir))
     df_treat = pd.read_csv(
         root_dir / "analyze" / "treat" / "correct" / "treat.csv",
@@ -50,6 +50,7 @@ def mean_over_up_del_size_on_tem(root_dir: os.PathLike, target: str):
             / "figures"
             / "analyze"
             / "mean_freq_over_up_del_size_on_tem"
+            / target
             / str(tem)
         )
         os.makedirs(save_dir, exist_ok=True)
@@ -59,14 +60,15 @@ def mean_over_up_del_size_on_tem(root_dir: os.PathLike, target: str):
             target,
             save_dir / "all.pdf",
         )
-        for stem in df_treat["stem"].unique().tolist():
-            df_treat_stem = df_treat.query("stem == @stem").reset_index(drop=True)
-            mean_over_up_del_size_on_tem_inner(
-                df_treat_stem,
-                tem,
-                target,
-                save_dir / f"{stem}.pdf",
-            )
+        if stem_wise:
+            for stem in df_treat["stem"].unique().tolist():
+                df_treat_stem = df_treat.query("stem == @stem").reset_index(drop=True)
+                mean_over_up_del_size_on_tem_inner(
+                    df_treat_stem,
+                    tem,
+                    target,
+                    save_dir / f"{stem}.pdf",
+                )
 
 
 def mean_over_up_del_size_on_tem_inner(
@@ -84,6 +86,7 @@ def mean_over_up_del_size_on_tem_inner(
             up_del_size=lambda df: df["cut1"] - df["ref_end1"],
         )
     )
+
     if not df_tem["legal"].any():
         return
 
