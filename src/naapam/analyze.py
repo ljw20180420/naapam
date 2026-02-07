@@ -472,8 +472,8 @@ def filter_mutant(
         )
     )
 
-    df_stat.loc["filter", "mutant_num"] = df_treat.shape[0]
-    df_stat.loc["filter", "count"] = df_treat["count"].sum()
+    df_stat.loc["filter", "mutant_num"] = df_treat["legal"].sum()
+    df_stat.loc["filter", "count"] = df_treat.query("legal")["count"].sum()
     df_stat.to_csv(save_dir / "stat.csv")
     df_stat["mutant_num"].plot.bar().get_figure().savefig(save_dir / "mutant_num.pdf")
     plt.close("all")
