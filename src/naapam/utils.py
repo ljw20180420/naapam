@@ -193,17 +193,16 @@ def freq_nowt(df: pd.DataFrame) -> pd.Series:
 
 def count_tem_dele(df: pd.DataFrame, tem: int, dele: int) -> pd.Series:
     return (
-        df[["stem", "ref_id"]]
+        df[["stem", "ref_id", "random_insertion"]]
         .merge(
             right=df.query(
                 """
                     ref_end1 + @dele == cut1 and \
-                    ref_start2 + @tem == cut2 and \
-                    random_insertion == ""
+                    ref_start2 + @tem == cut2
                 """
-            )[["stem", "ref_id", "count"]],
+            )[["stem", "ref_id", "random_insertion", "count"]],
             how="left",
-            on=["stem", "ref_id"],
+            on=["stem", "ref_id", "random_insertion"],
             validate="many_to_one",
         )["count"]
         .fillna(0)
