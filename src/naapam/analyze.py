@@ -353,7 +353,6 @@ def fit_ref(root_dir: os.PathLike, max_up_del_size: int):
 def filter_ref(
     root_dir: os.PathLike,
     min_count_tot: int,
-    max_up_del_size: int,
     max_freq_nowt: float,
 ):
     """
@@ -374,20 +373,9 @@ def filter_ref(
     )
     df_stat.loc["full", "count"] = df_treat["count"].sum()
 
-    summary_frame = pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)
-    outlier_ratio = np.exp(summary_frame["obs_ci_upper"])
-
     count_tot = df_treat.groupby(["stem", "ref_id"])["count"].transform("sum")
     mask = count_tot >= min_count_tot
     mask = mask & (utils.freq_nowt(df_treat) <= max_freq_nowt)
-    df_treat["tem_indicator"] = True
-    for tem in range(1, 5):
-        count_blunt = utils.count_tem_dele(df_treat, tem, 0)
-        for dele in range(1, max_up_del_size + 1):
-            df_treat["tem_indicator"] = df_treat["tem_indicator"] & (
-                utils.count_tem_dele(df_treat, tem, dele)
-                <= count_blunt * outlier_ratio[dele]
-            )
 
     df_treat = df_treat.loc[mask].reset_index(drop=True)
 
@@ -463,6 +451,26 @@ def filter_mutant(
     df_stat = pd.DataFrame(index=["full", "filter"], columns=["mutant_num", "count"])
     df_stat.loc["full", "mutant_num"] = df_treat.shape[0]
     df_stat.loc["full", "count"] = df_treat["count"].sum()
+
+    outlier_ratio = np.exp(
+        pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)["obs_ci_upper"]
+    )
+    df_treat["tem_indicator"] = df_treat["cut2"] - df_treat["ref_start2"] > 5
+    for tem in range(1, 6):
+        df_treat["tem_indicator"] = df_treat["tem_indicator"] | (
+            (df_treat["cut2"] - df_treat["ref_start2"] == tem)
+            & (df_treat["cut1"] - df_treat["ref_end1"] == 0)
+        )
+        count_blunt = utils.count_tem_dele(df_treat, tem, 0)
+        for up_del_size in range(1, max_up_del_size + 1):
+            df_treat["tem_indicator"] = df_treat["tem_indicator"] | (
+                (df_treat["cut2"] - df_treat["ref_start2"] == tem)
+                & (df_treat["cut1"] - df_treat["ref_end1"] == up_del_size)
+                & (
+                    utils.count_tem_dele(df_treat, tem, up_del_size)
+                    <= outlier_ratio[up_del_size] * count_blunt
+                )
+            )
 
     df_treat = df_treat.assign(
         legal=(

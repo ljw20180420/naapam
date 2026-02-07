@@ -22,6 +22,7 @@ $ pip install naapam
 
 # TODO
 
+- [ ] 更新jupyer的methods
 - [ ] 文档
   - 用法说明
   - 例子
