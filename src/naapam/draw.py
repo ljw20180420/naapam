@@ -38,11 +38,15 @@ grid_colors = [
 
 def mean_over_up_del_size_on_tem(root_dir: os.PathLike, target: str, stem_wise: bool):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    df_treat = pd.read_csv(
-        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
-        header=0,
-        na_values=["NA"],
-        keep_default_na=False,
+    df_treat = (
+        pd.read_csv(
+            root_dir / "analyze" / "treat" / "correct" / "treat.csv",
+            header=0,
+            na_values=["NA"],
+            keep_default_na=False,
+        )
+        .query("tem_indicator")
+        .reset_index(drop=True)
     )
     for tem in range(1, 5):
         save_dir = (

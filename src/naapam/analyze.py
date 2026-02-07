@@ -380,10 +380,11 @@ def filter_ref(
     count_tot = df_treat.groupby(["stem", "ref_id"])["count"].transform("sum")
     mask = count_tot >= min_count_tot
     mask = mask & (utils.freq_nowt(df_treat) <= max_freq_nowt)
+    df_treat["tem_indicator"] = True
     for tem in range(1, 5):
         count_blunt = utils.count_tem_dele(df_treat, tem, 0)
         for dele in range(1, max_up_del_size + 1):
-            mask = mask & (
+            df_treat["tem_indicator"] = df_treat["tem_indicator"] & (
                 utils.count_tem_dele(df_treat, tem, dele)
                 <= count_blunt * outlier_ratio[dele]
             )
