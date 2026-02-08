@@ -419,3 +419,26 @@ def infer_cut(row: pd.Series, ext: int) -> pd.Series:
             "cut": cut_correct,
         }
     )
+
+
+def get_mh(row: pd.Series) -> str:
+    ref_end1 = row["ref_end1"]
+    cut1 = row["cut1"]
+    ref1 = row["ref1"]
+    ref_start2 = row["ref_start2"] - len(ref1)
+    cut2 = row["cut2"] - len(ref1)
+    ref2 = row["ref2"]
+    i = ref_end1
+    for i in range(ref_end1, cut1 + 1):
+        if i >= cut1 or ref_start2 + i - ref_end1 >= len(ref2):
+            break
+        if ref1[i] != ref2[ref_start2 + i - ref_end1]:
+            break
+    j = ref_start2 - 1
+    for j in range(ref_start2 - 1, cut2 - 2, -1):
+        if j < cut2 or ref_end1 - ref_start2 + j < 0:
+            break
+        if ref2[j] != ref1[ref_end1 - ref_start2 + j]:
+            break
+
+    return ref2[j + 1 : ref_start2] + ref1[ref_end1:i]

@@ -22,6 +22,16 @@ $ pip install naapam
 
 # TODO
 
+- [ ] try modify score threshold
+- [ ] do not filter bad ref, keep them and see whether bad ref leads to more mutation
+- [ ] check non-designed ref
+- [ ] check filtered ref
+- [ ] check each sample with low frequency
+- [ ] check alg file
+- [ ] check all filter step
+- [ ] agg kim correct
+
+
 - [ ] 更新jupyer的methods
 - [ ] 文档
   - 用法说明

@@ -161,6 +161,15 @@ def collect_data(
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "full", exist_ok=True)
     os.makedirs(root_dir / "analyze" / "control" / "full", exist_ok=True)
+    os.makedirs(root_dir / "figures" / "analyze" / "collect_data", exist_ok=True)
+
+    df_stat = pd.DataFrame(
+        {
+            "row_num": [0, 0],
+            "count": [0, 0],
+        },
+        index=["full", "filter"],
+    )
     df_algs = []
     for alg_file in os.listdir(root_dir / "align" / "correct"):
         df_alg = utils.read_alg(
@@ -187,9 +196,17 @@ def collect_data(
                 "count_distri",
             ],
         )
+
+        df_stat.loc["full", "row_num"] += df_alg.shape[0]
+        df_stat.loc["full", "count"] += df_alg["count_distri"].sum()
+
+        df_alg = df_alg.query("score >= @min_score")
+
+        df_stat.loc["filter", "row_num"] += df_alg.shape[0]
+        df_stat.loc["filter", "count"] += df_alg["count_distri"].sum()
+
         df_alg = (
-            df_alg.query("score >= @min_score")
-            .groupby(
+            df_alg.groupby(
                 [
                     "ref_id",
                     "cut1",
@@ -213,6 +230,16 @@ def collect_data(
             .assign(stem=pathlib.Path(alg_file).stem)
         )
         df_algs.append(df_alg)
+
+    df_stat.to_csv(root_dir / "figures" / "analyze" / "collect_data" / "stat.csv")
+    df_stat["row_num"].plot.bar().get_figure().savefig(
+        root_dir / "figures" / "analyze" / "collect_data" / "row_num.pdf"
+    )
+    plt.close("all")
+    df_stat["count"].plot.bar().get_figure().savefig(
+        root_dir / "figures" / "analyze" / "collect_data" / "count.pdf"
+    )
+    plt.close("all")
 
     df_alg = pd.concat(df_algs).assign(cas=lambda df: df["stem"].map(utils.infer_cas))
     df_alg.query("cas != 'control'").drop(columns="cas").reset_index(
@@ -509,22 +536,21 @@ def kim_correct(root_dir: os.PathLike):
         freq_kim=freq_kim,
     )
 
-    df_treat.to_csv(
-        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
-        index=False,
-        na_rep="NA",
+    df_treat.to_feather(
+        root_dir / "analyze" / "treat" / "correct" / "treat.feather",
     )
 
 
 def annote_columns(root_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "annote", exist_ok=True)
+    os.makedirs(root_dir / "analyze" / "control" / "annote", exist_ok=True)
 
-    df_treat = pd.read_csv(
-        root_dir / "analyze" / "treat" / "correct" / "treat.csv",
-        header=0,
-        na_values=["NA"],
-        keep_default_na=False,
+    df_treat = pd.read_feather(
+        root_dir / "analyze" / "treat" / "correct" / "treat.feather"
+    )
+    df_control = pd.read_feather(
+        root_dir / "analyze" / "control" / "dup" / "control.feather"
     )
 
     # Read barcode and sgRNA from the generated fasta file to prevent the inconsistency when use custom plasmid file.
@@ -553,19 +579,19 @@ def annote_columns(root_dir: os.PathLike):
         )
     df_ref = pd.concat(df_ref).reset_index(drop=True)
 
-    df_control = []
+    df_column = []
     for chip in ["a1", "a2", "a3", "g1n", "g2n", "g3n"]:
-        df_control.append(
+        df_column.append(
             pd.read_feather(root_dir / "control" / "hq_mut" / f"{chip}.feather")[
                 ["barcode_id"]
             ]
             .reset_index(names="ref_id")
             .assign(chip=chip)
         )
-    df_control = pd.concat(df_control).reset_index(drop=True)
+    df_column = pd.concat(df_column).reset_index(drop=True)
 
-    df_control = (
-        df_control.merge(
+    df_column = (
+        df_column.merge(
             right=df_bar,
             how="left",
             on=["barcode_id"],
@@ -586,14 +612,27 @@ def annote_columns(root_dir: os.PathLike):
     )
 
     df_treat = df_treat.merge(
-        right=df_control,
+        right=df_column,
         how="left",
         on=["chip", "ref_id"],
         validate="many_to_one",
-    )
+    ).assign(mh=lambda df: df.apply(utils.get_mh, axis=1))
 
     df_treat.to_csv(
         root_dir / "analyze" / "treat" / "annote" / "treat.csv",
+        index=False,
+        na_rep="NA",
+    )
+
+    df_control = df_control.merge(
+        right=df_column,
+        how="left",
+        on=["chip", "ref_id"],
+        validate="many_to_one",
+    ).assign(mh=lambda df: df.apply(utils.get_mh, axis=1))
+
+    df_control.to_csv(
+        root_dir / "analyze" / "control" / "annote" / "control.csv",
         index=False,
         na_rep="NA",
     )
