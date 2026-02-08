@@ -157,10 +157,13 @@ def collect_indel(root_dir: os.PathLike) -> pd.DataFrame:
 
     for m_size in df_cat.keys():
         df_cat[m_size] = pd.concat(df_cat[m_size]).reset_index(drop=True)
-        df_cat.to_csv(root_dir / "ts" / "collect_indel" / f"{m_size}.csv", index=False)
+        df_cat[m_size].to_csv(
+            root_dir / "ts" / "collect_indel" / f"{m_size}.csv", index=False
+        )
 
         df_summary = (
-            df_cat.query("not is_wt")
+            df_cat[m_size]
+            .query("not is_wt")
             .groupby(["epoch", m_size])["count"]
             .sum()
             .reset_index()
@@ -173,22 +176,6 @@ def collect_indel(root_dir: os.PathLike) -> pd.DataFrame:
         ).save(root_dir / "ts" / "collect_indel" / f"{m_size}.pdf")
 
     return df
-
-
-def summary_indel(root_dir: os.PathLike):
-    root_dir = pathlib.Path(os.fspath(root_dir))
-    save_dir = root_dir / "ts" / "summary_indel"
-    os.makedirs(save_dir, exist_ok=True)
-
-    for m_size in ["del_size", "tem_ins_size", "rand_ins_size"]:
-        df = pd.read_csv(root_dir / "ts" / f"{m_size}.csv")
-        df.query("not is_wt").groupby(["epoch", m_size])["count"].sum().reset_index()
-        (
-            ggplot(df, aes(x=m_size, fill="epoch", weight="count"))
-            + geom_histogram(
-                aes(y=after_stat("density")), position="dodge", binwidth=1, bins=30
-            )
-        ).save(save_dir / f"{m_size}.pdf")
 
 
 def original_count(root_dir: os.PathLike):
