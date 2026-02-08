@@ -528,12 +528,11 @@ def kim_correct(root_dir: os.PathLike):
     df_treat = pd.read_feather(
         root_dir / "analyze" / "treat" / "merge" / "treat.feather"
     )
-    count_kim, count_tot_kim, freq_mut_kim, freq_kim = utils.kim(df_treat)
+    count_kim, count_tot_kim, freq_mut_kim = utils.kim(df_treat)
     df_treat = df_treat.assign(
         count_kim=count_kim,
         count_tot_kim=count_tot_kim,
         freq_mut_kim=freq_mut_kim,
-        freq_kim=freq_kim,
     )
 
     df_treat.to_feather(

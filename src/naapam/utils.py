@@ -211,8 +211,8 @@ def count_tem_dele(df: pd.DataFrame, tem: int, dele: int) -> pd.Series:
 
 def kim(df: pd.DataFrame) -> tuple[pd.Series]:
     count_tot = df.groupby(["stem", "ref_id"])["count"].transform("sum")
-    count_kim = np.maximum(
-        0, df["count"] - count_tot * (df["count_ctl"] / (df["count_tot_ctl"] + 1e-6))
+    count_kim = df["count"] - count_tot * (
+        df["count_ctl"] / (df["count_tot_ctl"] + 1e-6)
     )
     count_kim[is_wt(df)] = float("nan")
     count_kim_sum = (
@@ -224,13 +224,9 @@ def kim(df: pd.DataFrame) -> tuple[pd.Series]:
     count_tot_kim = count_tot * (
         (df["count_wt_ctl"] + 1e-6) / (df["count_tot_ctl"] + 1e-6)
     )
-    freq_mut_kim = np.minimum(
-        1.0,
-        count_kim_sum / (count_tot_kim + 1e-6),
-    )
-    freq_kim = count_kim / (count_kim_sum + 1e-6)
+    freq_mut_kim = count_kim_sum / (count_tot_kim + 1e-6)
 
-    return count_kim, count_tot_kim, freq_mut_kim, freq_kim
+    return count_kim, count_tot_kim, freq_mut_kim
 
 
 def pivot_value(df: pd.DataFrame, value: str, column: str) -> pd.DataFrame:
