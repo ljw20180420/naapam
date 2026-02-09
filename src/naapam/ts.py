@@ -188,9 +188,11 @@ def original_count(root_dir: os.PathLike):
     for unique_file in os.listdir(root_dir / "unique"):
         stems.append(pathlib.Path(unique_file).stem)
         counts.append(
-            pd.read_csv(root_dir / "unique" / unique_file, names=["R1", "R2", "count"])[
-                "count"
-            ].sum()
+            pd.read_csv(
+                root_dir / "unique" / unique_file, sep="\t", names=["R1", "R2", "count"]
+            )["count"]
+            .sum()
+            .item()
         )
 
     pd.DataFrame(
