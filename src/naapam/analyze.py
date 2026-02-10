@@ -462,6 +462,7 @@ def filter_mutant(
     max_down_del_size: int,
     max_rand_ins_size: int,
     max_freq_mutant: float,
+    fit_tem_max: int,
 ):
     """
     Do not filter mutant because missing mutant are treated as count 0. Use a column legal to mark mutant passing the filter.
@@ -482,8 +483,8 @@ def filter_mutant(
     outlier_ratio = np.exp(
         pd.read_csv(root_dir / "fit" / "summary_frame.csv", header=0)["obs_ci_upper"]
     )
-    df_treat["tem_indicator"] = df_treat["cut2"] - df_treat["ref_start2"] > 5
-    for tem in range(1, 6):
+    df_treat["tem_indicator"] = df_treat["cut2"] - df_treat["ref_start2"] > fit_tem_max
+    for tem in range(1, fit_tem_max + 1):
         df_treat["tem_indicator"] = df_treat["tem_indicator"] | (
             (df_treat["cut2"] - df_treat["ref_start2"] == tem)
             & (df_treat["cut1"] - df_treat["ref_end1"] == 0)
