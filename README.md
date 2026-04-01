@@ -31,13 +31,10 @@ $ pip install naapam
 - [ ] check all filter step
 - [ ] agg kim correct
 
-
-- [ ] 更新jupyer的methods
-- [ ] 文档
-  - 用法说明
-  - 例子
-  - mermaid
-- [ ] 发布包
+- [ ] Document
+  - Usage
+  - Example
+  - mermaid diagram
 
 # Dependencies
 
