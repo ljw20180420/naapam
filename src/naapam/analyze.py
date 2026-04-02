@@ -6,15 +6,15 @@ import numpy as np
 import pandas as pd
 import patsy
 import statsmodels.api as sm
-import statsmodels.formula.api as smf
 from scipy import special
 
 from . import utils
 
 
-def correct_alg(root_dir: os.PathLike, temperature: float):
+def correct_alg(root_dir: os.PathLike, correct_dir: os.PathLike, temperature: float):
     root_dir = pathlib.Path(os.fspath(root_dir))
-    os.makedirs(root_dir / "align" / "correct", exist_ok=True)
+    correct_dir = pathlib.Path(os.fspath(correct_dir))
+    os.makedirs(correct_dir, exist_ok=True)
     for alg_file in os.listdir(root_dir / "align" / "raw"):
         df_alg = utils.read_alg(
             root_dir / "align" / "raw" / alg_file,
@@ -101,21 +101,22 @@ def correct_alg(root_dir: os.PathLike, temperature: float):
             },
         )
         df_output.stack().to_csv(
-            root_dir / "align" / "correct" / alg_file,
+            correct_dir / alg_file,
             header=False,
             index=False,
         )
 
 
-def stat_read(root_dir: os.PathLike):
+def stat_read(root_dir: os.PathLike, correct_dir: os.PathLike):
     root_dir = pathlib.Path(os.fspath(root_dir))
+    correct_dir = pathlib.Path(os.fspath(correct_dir))
     save_dir = root_dir / "figures" / "analyze" / "stat_read"
     os.makedirs(save_dir, exist_ok=True)
     df_algs = []
-    for alg_file in os.listdir(root_dir / "align" / "correct"):
+    for alg_file in os.listdir(correct_dir):
         df_algs.append(
             utils.read_alg(
-                root_dir / "align" / "correct" / alg_file,
+                correct_dir / alg_file,
                 names=[
                     "index",
                     "count",
@@ -153,12 +154,14 @@ def stat_read(root_dir: os.PathLike):
 
 def collect_data(
     root_dir: os.PathLike,
+    correct_dir: os.PathLike,
     min_score: int,
 ):
     """
     Only collect data. Do not apply any annotation. Only apply read-wise filter such as score.
     """
     root_dir = pathlib.Path(os.fspath(root_dir))
+    correct_dir = pathlib.Path(os.fspath(correct_dir))
     os.makedirs(root_dir / "analyze" / "treat" / "full", exist_ok=True)
     os.makedirs(root_dir / "analyze" / "control" / "full", exist_ok=True)
     os.makedirs(root_dir / "figures" / "analyze" / "collect_data", exist_ok=True)
@@ -171,9 +174,9 @@ def collect_data(
         index=["full", "filter"],
     )
     df_algs = []
-    for alg_file in os.listdir(root_dir / "align" / "correct"):
+    for alg_file in os.listdir(correct_dir):
         df_alg = utils.read_alg(
-            root_dir / "align" / "correct" / alg_file,
+            correct_dir / alg_file,
             names=[
                 "index",
                 "count",
