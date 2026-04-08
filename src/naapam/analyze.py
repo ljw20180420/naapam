@@ -101,9 +101,10 @@ def correct_alg(root_dir: os.PathLike, correct_dir: os.PathLike, temperature: fl
             },
         )
         df_output.stack().to_csv(
-            correct_dir / alg_file,
+            correct_dir / f"{alg_file}.gz",
             header=False,
             index=False,
+            compression="gzip",
         )
 
 
