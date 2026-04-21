@@ -18,6 +18,9 @@ dependencies = [
     "statsmodels>=0.14.6",
 ]
 
+[project.urls]
+Repository = "https://github.com/ljw20180420/naapam.git"
+
 [project.scripts]
 naapam-parse = "naapam.parse:main"
 naapam-parse-parallel = "naapam.scripts:parse"

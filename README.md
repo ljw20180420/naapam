@@ -22,6 +22,11 @@ $ pip install naapam
 
 # TODO
 
+- [ ] Update document
+  - Usage
+  - Example
+  - mermaid diagram
+
 - [ ] try modify score threshold
 - [ ] do not filter bad ref, keep them and see whether bad ref leads to more mutation
 - [ ] check non-designed ref
@@ -30,11 +35,6 @@ $ pip install naapam
 - [ ] check alg file
 - [ ] check all filter step
 - [ ] agg kim correct
-
-- [ ] Document
-  - Usage
-  - Example
-  - mermaid diagram
 
 # Dependencies
 
