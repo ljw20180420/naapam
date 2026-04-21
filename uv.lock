@@ -365,7 +365,7 @@ wheels = [
 
 [[package]]
 name = "naapam"
-version = "0.1.12"
+version = "0.1.16"
 source = { editable = "." }
 dependencies = [
     { name = "biopython" },
