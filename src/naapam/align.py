@@ -17,9 +17,10 @@ def get_file_pairs(data_dir: os.PathLike) -> list[dict[str, os.PathLike]]:
         if not file.endswith(".R2.fq.gz"):
             continue
         stem = file.replace(".R2.fq.gz", "")
-        file_pairs.append(
-            {"R1": data_dir / f"{stem}.fq.gz", "R2": data_dir / f"{stem}.R2.fq.gz"}
-        )
+        file_pairs.append({
+            "R1": data_dir / f"{stem}.fq.gz",
+            "R2": data_dir / f"{stem}.R2.fq.gz",
+        })
     return file_pairs
 
 
@@ -44,25 +45,24 @@ def remove_duplicates(data_dir: os.PathLike, root_dir: os.PathLike):
 
 def agg(df: pd.DataFrame) -> pd.DataFrame:
     return (
-        df.groupby(
-            [
-                "R1_primer",
-                "G",
-                "R1_sgRNA",
-                "R1_scaffold_prefix",
-                "R1_tail",
-                "R2_primer",
-                "barcode_head",
-                "barcode",
-                "CTG_target_prefix",
-                "R2_sgRNA",
-                "pam",
-                "target_suffix",
-                "C",
-                "R2_scaffold_prefix",
-                "R2_tail",
-            ]
-        )
+        df
+        .groupby([
+            "R1_primer",
+            "G",
+            "R1_sgRNA",
+            "R1_scaffold_prefix",
+            "R1_tail",
+            "R2_primer",
+            "barcode_head",
+            "barcode",
+            "CTG_target_prefix",
+            "R2_sgRNA",
+            "pam",
+            "target_suffix",
+            "C",
+            "R2_scaffold_prefix",
+            "R2_tail",
+        ])
         .agg(
             R1_primer_score=pd.NamedAgg(column="R1_primer_score", aggfunc="first"),
             R1_scaffold_prefix_score=pd.NamedAgg(
@@ -160,9 +160,9 @@ def draw(save_dirs: list[os.PathLike], summary_dir: os.PathLike):
     for csv_file in os.listdir(save_dirs[0]):
         if not csv_file.endswith(".csv"):
             continue
-        df_stat = pd.concat(
-            [pd.read_csv(save_dir / csv_file, header=0) for save_dir in save_dirs]
-        ).reset_index(drop=True)
+        df_stat = pd.concat([
+            pd.read_csv(save_dir / csv_file, header=0) for save_dir in save_dirs
+        ]).reset_index(drop=True)
         name = (
             df_stat.columns[0] if df_stat.columns[0] != "count" else df_stat.columns[1]
         )
@@ -374,7 +374,7 @@ def cluster_func_control_by_mutant(
             else:
                 plasmid_file_default = "final_hgsgrna_libb_all_0811-NGG.csv"
             with resources.as_file(
-                resources.files() / "plasmids" / plasmid_file_default
+                resources.files("naapam.plasmids") / plasmid_file_default
             ) as pf:
                 df_plasmid = pd.read_csv(pf, header=0)
         else:
@@ -396,16 +396,18 @@ def cluster_func_control_by_mutant(
 
         df_control = pd.read_feather(root_dir / "control" / "func" / f"{chip}.feather")
         df_control = df_control.assign(
-            query=lambda df: df["R2_primer"]
-            + df["barcode_head"]
-            + df["barcode"]
-            + df["CTG_target_prefix"]
-            + df["R2_sgRNA"]
-            + df["pam"]
-            + df["target_suffix"]
-            + df["C"]
-            + df["R2_scaffold_prefix"]
-            + df["R2_tail"],
+            query=lambda df: (
+                df["R2_primer"]
+                + df["barcode_head"]
+                + df["barcode"]
+                + df["CTG_target_prefix"]
+                + df["R2_sgRNA"]
+                + df["pam"]
+                + df["target_suffix"]
+                + df["C"]
+                + df["R2_scaffold_prefix"]
+                + df["R2_tail"]
+            ),
         )[["barcode_id", "query", "count"]].merge(
             right=df_plasmid[["barcode_id", "ref1", "ref2", "cut", "ext"]],
             how="left",
@@ -423,40 +425,40 @@ def cluster_func_control_by_mutant(
         )
 
         df_control = (
-            df_control.assign(
+            df_control
+            .assign(
                 ref_end1=df_alg["ref_end1"],
                 ref_start2=df_alg["ref_start2"],
                 random_insertion=df_alg["random_insertion"],
                 cut1=lambda df: df["cut"],
                 cut2=lambda df: df["cut1"] + 2 * ext,
             )
-            .groupby(
-                [
-                    "barcode_id",
-                    "ref_end1",
-                    "ref_start2",
-                    "random_insertion",
-                    "cut1",
-                    "cut2",
-                    "ref1",
-                    "ref2",
-                ]
-            )["count"]
+            .groupby([
+                "barcode_id",
+                "ref_end1",
+                "ref_start2",
+                "random_insertion",
+                "cut1",
+                "cut2",
+                "ref1",
+                "ref2",
+            ])["count"]
             .sum()
             .sort_values()
             .reset_index()
             .assign(
-                percentage=lambda df: df.groupby("barcode_id")["count"].transform(
-                    "cumsum"
-                )
-                / df.groupby("barcode_id")["count"].transform("sum"),
+                percentage=lambda df: (
+                    df.groupby("barcode_id")["count"].transform("cumsum")
+                    / df.groupby("barcode_id")["count"].transform("sum")
+                ),
                 rank=lambda df: df.groupby("barcode_id")["count"].rank(ascending=False),
             )
         )
 
         # count_wt
         df_control = (
-            df_control.merge(
+            df_control
+            .merge(
                 right=df_control.query(
                     """
                     ref_end1 == cut1 and \
@@ -483,7 +485,8 @@ def cluster_func_control_by_mutant(
                 for pos in range(-ext - size, ext + 1):
                     indel_type = f"{it}_{pos}_{size}".replace("-", "m")
                     df_control = df_control.merge(
-                        right=df_control.query("indel_type == @indel_type")
+                        right=df_control
+                        .query("indel_type == @indel_type")
                         .groupby("barcode_id")["count"]
                         .sum()
                         .rename(f"count_{indel_type}")
@@ -491,13 +494,11 @@ def cluster_func_control_by_mutant(
                         how="left",
                         on=["barcode_id"],
                         validate="many_to_one",
-                    ).assign(
-                        **{
-                            f"count_{indel_type}": lambda df: df[
-                                f"count_{indel_type}"
-                            ].fillna(0)
-                        }
-                    )
+                    ).assign(**{
+                        f"count_{indel_type}": lambda df: df[
+                            f"count_{indel_type}"
+                        ].fillna(0)
+                    })
                     all_counts.append(f"count_{indel_type}")
 
                 df_control = df_control.copy()
@@ -545,7 +546,8 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
 
         # up_del_size
         df_stat = (
-            df_control.assign(up_del_size=lambda df: utils.up_del_size(df))
+            df_control
+            .assign(up_del_size=lambda df: utils.up_del_size(df))
             .groupby("up_del_size")["count"]
             .sum()
             .reset_index()
@@ -557,7 +559,8 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
 
         # down_del_size
         df_stat = (
-            df_control.assign(down_del_size=lambda df: utils.down_del_size(df))
+            df_control
+            .assign(down_del_size=lambda df: utils.down_del_size(df))
             .groupby("down_del_size")["count"]
             .sum()
             .reset_index()
@@ -569,7 +572,8 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
 
         # rand_ins_size
         df_stat = (
-            df_control.assign(rand_ins_size=lambda df: utils.rand_ins_size(df))
+            df_control
+            .assign(rand_ins_size=lambda df: utils.rand_ins_size(df))
             .groupby("rand_ins_size")["count"]
             .sum()
             .reset_index()
@@ -604,20 +608,17 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
             second_rel_first=lambda df: df["second"] / (df["first"] + 1e-6)
         ).groupby("barcode_id")["second_rel_first"].first().plot.hist(
             bins=100, logy=True
-        ).get_figure().savefig(
-            save_dir / "second_rel_first.pdf"
-        )
+        ).get_figure().savefig(save_dir / "second_rel_first.pdf")
         plt.close("all")
 
         # second_all_rel_first_all
         df_control.assign(
-            second_all_rel_first_all=lambda df: df["second_all"]
-            / (df["first_all"] + 1e-6)
+            second_all_rel_first_all=lambda df: (
+                df["second_all"] / (df["first_all"] + 1e-6)
+            )
         ).groupby("barcode_id")["second_all_rel_first_all"].first().plot.hist(
             bins=100, logy=True
-        ).get_figure().savefig(
-            save_dir / "second_all_rel_first_all.pdf"
-        )
+        ).get_figure().savefig(save_dir / "second_all_rel_first_all.pdf")
         plt.close("all")
 
         # type_max
@@ -628,7 +629,8 @@ def stat_func_control(root_dir: os.PathLike, ext: int):
                     indel_type = f"{it}_{pos}_{size}".replace("-", "m")
                     all_counts.append(f"count_{indel_type}")
         df_stat = (
-            df_control.assign(type_max=lambda df: df[all_counts].idxmax(axis=1))
+            df_control
+            .assign(type_max=lambda df: df[all_counts].idxmax(axis=1))
             .groupby("barcode_id")
             .agg(
                 count_tot=pd.NamedAgg(column="count", aggfunc="sum"),
@@ -752,21 +754,18 @@ def generate_reference(
             ref1 = (
                 ref1
                 + row["ref2"][
-                    row["ref_start2"]
-                    - len(row["ref1"]) : row["cut2"]
+                    row["ref_start2"] - len(row["ref1"]) : row["cut2"]
                     - len(row["ref1"])
                 ]
             )
         cut = len(ref1)
         ref1 = ref[: cut + ext]
         ref2 = ref[cut - ext :]
-        return pd.Series(
-            {
-                "ref1": ref1,
-                "ref2": ref2,
-                "cut": cut,
-            }
-        )
+        return pd.Series({
+            "ref1": ref1,
+            "ref2": ref2,
+            "cut": cut,
+        })
 
     root_dir = pathlib.Path(root_dir)
     os.makedirs(root_dir / "ref", exist_ok=True)
@@ -775,9 +774,9 @@ def generate_reference(
             root_dir / "control" / "hq_mut" / f"{chip}.feather"
         )
 
-        assert (
-            df_control["ref_start2"] <= df_control["cut2"] + 3
-        ).all(), "pam is mutated"
+        assert (df_control["ref_start2"] <= df_control["cut2"] + 3).all(), (
+            "pam is mutated"
+        )
 
         df_ref = (
             df_control[
@@ -924,18 +923,21 @@ def demultiplex(root_dir: os.PathLike):
         ].reset_index(names="ref_id")
 
         df_query = (
-            pd.read_feather(root_dir / "treat" / "filter" / treat_file)
+            pd
+            .read_feather(root_dir / "treat" / "filter" / treat_file)
             .assign(
-                query=lambda df: df["R2_primer"]
-                + df["barcode_head"]
-                + df["barcode"]
-                + df["CTG_target_prefix"]
-                + df["R2_sgRNA"]
-                + df["pam"]
-                + df["target_suffix"]
-                + df["C"]
-                + df["R2_scaffold_prefix"]
-                + df["R2_tail"]
+                query=lambda df: (
+                    df["R2_primer"]
+                    + df["barcode_head"]
+                    + df["barcode"]
+                    + df["CTG_target_prefix"]
+                    + df["R2_sgRNA"]
+                    + df["pam"]
+                    + df["target_suffix"]
+                    + df["C"]
+                    + df["R2_scaffold_prefix"]
+                    + df["R2_tail"]
+                )
             )
             .groupby("query")
             .agg(
@@ -950,8 +952,9 @@ def demultiplex(root_dir: os.PathLike):
             )
             .assign(
                 ref_id=lambda df: df["ref_id"].fillna(-1).astype(int),
-                count_distri=lambda df: df["count"]
-                / df.groupby("query").transform("size"),
+                count_distri=lambda df: (
+                    df["count"] / df.groupby("query").transform("size")
+                ),
             )
         )
 
@@ -1001,16 +1004,12 @@ def summary_demultiplex(save_dir: os.PathLike):
         "number"
     ].sum().reset_index().plot.scatter(
         x="ref_id", y="number", logy=True
-    ).get_figure().savefig(
-        save_dir / "query_number_per_ref.pdf"
-    )
+    ).get_figure().savefig(save_dir / "query_number_per_ref.pdf")
     plt.close("all")
 
     pd.concat(df_query_count_per_refs).groupby("ref_id")[
         "count"
     ].sum().reset_index().plot.scatter(
         x="ref_id", y="count", logy=True
-    ).get_figure().savefig(
-        save_dir / "query_count_per_ref.pdf"
-    )
+    ).get_figure().savefig(save_dir / "query_count_per_ref.pdf")
     plt.close("all")

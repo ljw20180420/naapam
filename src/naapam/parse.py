@@ -192,9 +192,8 @@ def build_barcode(root_dir: os.PathLike, plasmid_file: os.PathLike | None):
     os.makedirs(root_dir / "barcode" / "index", exist_ok=True)
     if plasmid_file is None:
         with resources.as_file(
-            resources.files().parent
-            / "plasmids"
-            / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+            resources.files("naapam.plasmids")
+            / "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
         ) as pf:
             df_plasmid = pd.read_csv(pf, header=0)
     else:
@@ -302,19 +301,18 @@ def parse_barcode(root_dir: os.PathLike):
                 CTG_target_prefixs.append(align.seq[align.qend :])
                 barcode_ids.append(align.rname)
                 barcode_scores.append(align.get_tag("AS"))
-        df_sam = pd.DataFrame(
-            {
-                "qname": qnames,
-                "barcode_head": barcode_heads,
-                "barcode": barcodes,
-                "CTG_target_prefix": CTG_target_prefixs,
-                "barcode_id": barcode_ids,
-                "barcode_score": barcode_scores,
-            }
-        )
+        df_sam = pd.DataFrame({
+            "qname": qnames,
+            "barcode_head": barcode_heads,
+            "barcode": barcodes,
+            "CTG_target_prefix": CTG_target_prefixs,
+            "barcode_id": barcode_ids,
+            "barcode_score": barcode_scores,
+        })
 
         df_parse = (
-            pd.read_csv(
+            pd
+            .read_csv(
                 root_dir / "parse" / "nobar" / parse_file,
                 sep="\t",
                 header=0,
@@ -369,9 +367,8 @@ def build_sgRNA(root_dir: os.PathLike, plasmid_file: os.PathLike | None):
     os.makedirs(root_dir / "sgRNA" / "index", exist_ok=True)
     if plasmid_file is None:
         with resources.as_file(
-            resources.files().parent
-            / "plasmids"
-            / "plasmids/final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
+            resources.files("naapam.plasmids")
+            / "final_hgsgrna_libb_all_0811_NAA_scaffold_nbt.csv"
         ) as pf:
             df_plasmid = pd.read_csv(pf, header=0)
     else:
@@ -477,13 +474,11 @@ def parse_sgRNA(root_dir: os.PathLike):
             else:
                 R1_sgRNA_ids.append(align.rname)
                 R1_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
-        df_R1_sam = pd.DataFrame(
-            {
-                "qname": R1_qnames,
-                "R1_sgRNA_id": R1_sgRNA_ids,
-                "R1_sgRNA_bowtie2_score": R1_sgRNA_bowtie2_scores,
-            }
-        )
+        df_R1_sam = pd.DataFrame({
+            "qname": R1_qnames,
+            "R1_sgRNA_id": R1_sgRNA_ids,
+            "R1_sgRNA_bowtie2_score": R1_sgRNA_bowtie2_scores,
+        })
 
         R2_sam = pysam.AlignmentFile(
             root_dir / "sgRNA" / "align" / "R2_sgRNA" / sam_file
@@ -499,16 +494,15 @@ def parse_sgRNA(root_dir: os.PathLike):
             else:
                 R2_sgRNA_ids.append(align.rname)
                 R2_sgRNA_bowtie2_scores.append(align.get_tag("AS"))
-        df_R2_sam = pd.DataFrame(
-            {
-                "qname": R2_qnames,
-                "R2_sgRNA_id": R2_sgRNA_ids,
-                "R2_sgRNA_bowtie2_score": R2_sgRNA_bowtie2_scores,
-            }
-        )
+        df_R2_sam = pd.DataFrame({
+            "qname": R2_qnames,
+            "R2_sgRNA_id": R2_sgRNA_ids,
+            "R2_sgRNA_bowtie2_score": R2_sgRNA_bowtie2_scores,
+        })
 
         df_parse = (
-            pd.read_csv(
+            pd
+            .read_csv(
                 root_dir / "parse" / "bar" / parse_file,
                 sep="\t",
                 header=0,
