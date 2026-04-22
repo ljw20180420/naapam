@@ -67,7 +67,7 @@ if wild type is included, and
 $$
 \frac{e^{(i)} - e_0^{(i)}}{\sum_i (e^{(i)} - e_0^{(i)})}
 $$
-if wild type is excluded.
+if wild type is excluded. This method has been used in previous works [High-throughput analysis of the activities of xCas9, SpCas9-NG and SpCas9 at matched and mismatched target sequences in human cells](https://doi.org/10.1038/s41551-019-0505-1) and [Prediction of the sequence-specific cleavage activity of Cas9 variants](https://doi.org/10.1038/s41587-020-0537-9).
 
 # Install
 
