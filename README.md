@@ -1,6 +1,6 @@
 # Introduction
 
-<pre class="mermaid">
+```mermaid
 ---
 title: Workflow
 ---
@@ -14,7 +14,7 @@ flowchart TD
   NP[(nonfunctional plasmids)] --> NCR[(negative control reads)] --> A2[alignment]
 
   FP --> A2 --> NCEO[(negative control editing outcomes)] --> C
-</pre>
+```
 
 We design the workflow `naapam` to decouple the CRISPR/Cas9 editing outcomes from the synthesis error of reference plasmids. We first give an overview of the workflow and left the techniqal details in [Discriminate functional and nonfunctional plasmids](#discriminate-functional-and-nonfunctional-plasmids), [Sequence alignment](#sequence-alignment) and [Correction observed editing outcomes by negative control](#correction-observed-editing-outcomes-by-negative-control).
 
@@ -24,7 +24,7 @@ For cell lines express Cas9, both nonfunctional plasmids and edited functional p
 
 ## Discriminate functional and nonfunctional plasmids
 
-<pre class="mermaid">
+```mermaid
 block
   block:ID
     R1B["R1 barcode"]
@@ -39,7 +39,7 @@ block
     RCR2P["R2 primer'"]
     RCR2B["R2 barcode'"]
   end
-</pre>
+```
 
 We parse the components for each read in control samples. We discriminate functional and nonfunction plasmids based on the integrity and conservation of:
 
