@@ -1,0 +1,49 @@
+{
+    "creators": [
+        {
+            "name": "Li, Jingwei",
+            "orcid": "0000-0001-5401-8570",
+            "affiliation": "Shanghai Jiao Tong University",
+            "type": "ProjectMember"
+        }
+    ],
+    "contributors": [
+        {
+            "name": "Shi, Xin",
+            "affiliation": "Shanghai Jiao Tong University",
+            "type": "Researcher"
+        },
+        {
+            "name": "Li, Chenyu",
+            "affiliation": "Shanghai Jiao Tong University",
+            "type": "Researcher"
+        },
+        {
+            "name": "Li, Jingwei",
+            "affiliation": "Shanghai Jiao Tong University",
+            "type": "Researcher"
+        },
+        {
+            "name": "Wu, Qiang",
+            "affiliation": "Shanghai Jiao Tong University",
+            "type": "ProjectLeader"
+        }
+    ],
+    "title": "Tools to process large-scale sgRNA library sequencing data",
+    "version": "0.1.18",
+    "access_right": "open",
+    "related_identifiers": [
+        {
+            "identifier": "NA",
+            "relation": "isSupplementTo",
+            "resource_type": "publication-article"
+        }
+    ],
+    "keywords": [
+        "CRISPR/Cas9",
+        "sgRNA library"
+    ],
+    "license": "mit",
+    "upload_type": "software",
+    "language": "eng"
+}
